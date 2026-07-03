@@ -597,12 +597,7 @@ body {
   }
 }
 
-/* Hide overlapping circle magnifier glass on touch mobile devices */
-@media (max-width: 767px) {
-  .magnifier-glass-circle {
-    display: none !important;
-  }
-}
+
 
 /* iOS Style Segmented Control for Front/Back View */
 .view-segmented-control {

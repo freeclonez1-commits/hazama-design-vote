@@ -160,6 +160,15 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
   const [commentInput, setCommentInput] = useState('');
   const [isAnonymousComment, setIsAnonymousComment] = useState(false);
 
+  // Magnifier State
+  const [magnifierState, setMagnifierState] = useState({
+    show: false,
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0
+  });
+
   useEffect(() => {
     if (detailDesign) {
       loadDesignComments(detailDesign.id);
@@ -301,27 +310,29 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
     toast(`Hoàn tất tải toàn bộ ${variants.length} ảnh của Bộ sưu tập!`, 'success');
   };
 
-  // Magnifier Zoom State
-  const [magnifierState, setMagnifierState] = useState({
-    show: false,
-    x: 0,
-    y: 0,
-    width: 0,
-    height: 0
-  });
-
-  const handleMagnifierMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const container = e.currentTarget;
+  // Unified Mouse & Touch Hover Zoom Magnifier Handler
+  const handleMagnifierMove = (clientX: number, clientY: number, container: HTMLDivElement) => {
     const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
     setMagnifierState({
       show: true,
-      x,
-      y,
+      x: Math.max(0, Math.min(x, rect.width)),
+      y: Math.max(0, Math.min(y, rect.height)),
       width: rect.width,
       height: rect.height
     });
+  };
+
+  const handleMagnifierMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    handleMagnifierMove(e.clientX, e.clientY, e.currentTarget);
+  };
+
+  const handleMagnifierTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length > 0) {
+      const touch = e.touches[0];
+      handleMagnifierMove(touch.clientX, touch.clientY, e.currentTarget);
+    }
   };
 
   const handleMagnifierMouseLeave = () => {
@@ -1179,6 +1190,14 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                 onMouseMove={handleMagnifierMouseMove}
                 onMouseLeave={handleMagnifierMouseLeave}
                 onMouseEnter={() => setMagnifierState(prev => ({ ...prev, show: true }))}
+                onTouchMove={handleMagnifierTouchMove}
+                onTouchStart={e => {
+                  if (e.touches.length > 0) {
+                    const touch = e.touches[0];
+                    handleMagnifierMove(touch.clientX, touch.clientY, e.currentTarget);
+                  }
+                }}
+                onTouchEnd={handleMagnifierMouseLeave}
                 style={{
                   flex: 1,
                   aspectRatio: '3 / 4',
@@ -1190,7 +1209,8 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   position: 'relative',
-                  cursor: 'zoom-in'
+                  cursor: 'zoom-in',
+                  touchAction: 'none'
                 }}
               >
                 {activeModalVariant ? (
@@ -1201,26 +1221,26 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                       style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '16px' }}
                     />
                     
-                {/* Magnifier Circle Glass (Desktop Only) */}
-                    {magnifierState.show && window.innerWidth > 768 && (
+                    {/* Unified Desktop & Mobile Hover Magnifier Glass */}
+                    {magnifierState.show && (
                       <div
-                        className="magnifier-glass-circle hide-mobile"
+                        className="magnifier-glass-circle"
                         style={{
                           position: 'absolute',
                           pointerEvents: 'none',
-                          width: '180px',
-                          height: '180px',
+                          width: '150px',
+                          height: '150px',
                           borderRadius: '50%',
                           border: '2px solid #FFFFFF',
-                          boxShadow: '0 8px 30px rgba(0,0,0,0.22), inset 0 0 10px rgba(0,0,0,0.15)',
-                          left: `${magnifierState.x - 90}px`,
-                          top: `${magnifierState.y - 90}px`,
+                          boxShadow: '0 8px 30px rgba(0,0,0,0.25), inset 0 0 10px rgba(0,0,0,0.15)',
+                          left: `${magnifierState.x - 75}px`,
+                          top: `${magnifierState.y - 75}px`,
                           backgroundImage: `url(${activeModalVariant.imageUrl})`,
-                          backgroundPosition: `${-magnifierState.x * 2.5 + 90}px ${-magnifierState.y * 2.5 + 90}px`,
+                          backgroundPosition: `${-magnifierState.x * 2.5 + 75}px ${-magnifierState.y * 2.5 + 75}px`,
                           backgroundRepeat: 'no-repeat',
                           backgroundSize: `${magnifierState.width * 2.5}px ${magnifierState.height * 2.5}px`,
                           zIndex: 15,
-                          transition: 'left 0.04s linear, top 0.04s linear'
+                          transition: 'left 0.03s linear, top 0.03s linear'
                         }}
                       />
                     )}
