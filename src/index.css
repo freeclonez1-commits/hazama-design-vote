@@ -572,13 +572,14 @@ body {
 .detail-modal-layout {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 20px;
 }
 
 @media (min-width: 768px) {
   .detail-modal-layout {
     flex-direction: row;
     align-items: stretch;
+    gap: 28px;
   }
 }
 
@@ -593,6 +594,13 @@ body {
   .detail-modal-sidebar {
     width: 360px;
     flex-shrink: 0;
+  }
+}
+
+/* Hide overlapping circle magnifier glass on touch mobile devices */
+@media (max-width: 767px) {
+  .magnifier-glass-circle {
+    display: none !important;
   }
 }
 

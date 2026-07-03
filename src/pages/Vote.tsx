@@ -1201,9 +1201,10 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                       style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '16px' }}
                     />
                     
-                    {/* Magnifier Circle Glass */}
-                    {magnifierState.show && (
+                {/* Magnifier Circle Glass (Desktop Only) */}
+                    {magnifierState.show && window.innerWidth > 768 && (
                       <div
+                        className="magnifier-glass-circle hide-mobile"
                         style={{
                           position: 'absolute',
                           pointerEvents: 'none',
@@ -1211,14 +1212,15 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                           height: '180px',
                           borderRadius: '50%',
                           border: '2px solid #FFFFFF',
-                          boxShadow: '0 8px 30px rgba(0,0,0,0.18), inset 0 0 10px rgba(0,0,0,0.12)',
+                          boxShadow: '0 8px 30px rgba(0,0,0,0.22), inset 0 0 10px rgba(0,0,0,0.15)',
                           left: `${magnifierState.x - 90}px`,
                           top: `${magnifierState.y - 90}px`,
                           backgroundImage: `url(${activeModalVariant.imageUrl})`,
                           backgroundPosition: `${-magnifierState.x * 2.5 + 90}px ${-magnifierState.y * 2.5 + 90}px`,
                           backgroundRepeat: 'no-repeat',
                           backgroundSize: `${magnifierState.width * 2.5}px ${magnifierState.height * 2.5}px`,
-                          zIndex: 10
+                          zIndex: 15,
+                          transition: 'left 0.04s linear, top 0.04s linear'
                         }}
                       />
                     )}
