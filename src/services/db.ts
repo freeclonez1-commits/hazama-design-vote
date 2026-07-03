@@ -998,7 +998,7 @@ export const dbService = {
     setStorage(KEYS.VOTES, all.filter(v => v.sessionId !== sessionId));
   },
 
-  // Import Logs APIs
+  // Import Logs APIs (Lấy tối đa 20 log mới nhất)
   async listImportLogs(sessionId: string): Promise<ImportLog[]> {
     if (isFirebaseEnabled && db) {
       try {
@@ -1006,14 +1006,18 @@ export const dbService = {
         const snap = await getDocs(q);
         return snap.docs
           .map(d => d.data() as ImportLog)
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 20);
       } catch (e) {
         console.error("Firestore listImportLogs error:", e);
       }
     }
 
     const logs = getStorage<ImportLog[]>(KEYS.IMPORT_LOGS, []);
-    return logs.filter(l => l.sessionId === sessionId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return logs
+      .filter(l => l.sessionId === sessionId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 20);
   },
 
   async saveImportLogs(newLogs: ImportLog[]): Promise<void> {

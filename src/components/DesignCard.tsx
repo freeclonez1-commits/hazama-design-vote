@@ -152,19 +152,19 @@ export const DesignCard: React.FC<DesignCardProps> = ({
       </div>
 
       {/* Content Section */}
-      <div style={{ padding: '12px 4px 4px 4px', display: 'flex', flexDirection: 'column', flex: 1, gap: '4px', alignItems: 'center', textAlign: 'center' }}>
+      <div style={{ padding: '14px 8px 8px 8px', display: 'flex', flexDirection: 'column', flex: 1, gap: '4px', alignItems: 'center', textAlign: 'center' }}>
         {/* Color Dots Indicator */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', minHeight: '10px', marginTop: '4px', marginBottom: '4px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', minHeight: '12px', marginTop: '2px', marginBottom: '6px' }}>
           {uniqueColors.map(c => (
             <span
               key={c}
               title={c}
               style={{
-                width: 8,
-                height: 8,
+                width: 9,
+                height: 9,
                 borderRadius: '50%',
                 backgroundColor: COLORS_MAP[c] || '#CCCCCC',
-                border: c === 'white' ? '1px solid var(--border)' : 'none',
+                border: c === 'white' ? '1px solid #D2D2D7' : 'none',
                 boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)'
               }}
             />
@@ -174,20 +174,20 @@ export const DesignCard: React.FC<DesignCardProps> = ({
         {/* Title */}
         <h4
           style={{
-            fontSize: '12px',
-            fontWeight: 500,
-            color: 'var(--text-primary)',
-            lineHeight: '1.4',
+            fontSize: '14px',
+            fontWeight: 700,
+            color: '#1D1D1F',
+            lineHeight: '1.35',
             margin: '0',
             fontFamily: 'var(--font-sans)',
-            textTransform: 'none'
+            letterSpacing: '-0.2px'
           }}
         >
           {design.name}
         </h4>
 
         {/* Design Code Sub-label */}
-        <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', marginTop: '2px' }}>
+        <span style={{ fontSize: '12px', fontWeight: 500, color: '#8E8E93', letterSpacing: '0.2px', marginTop: '3px' }}>
           {design.code} • {uniqueColors.length} màu
         </span>
       </div>

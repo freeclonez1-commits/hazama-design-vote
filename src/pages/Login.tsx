@@ -72,22 +72,87 @@ export const Login: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#FAF9F6',
-        padding: '24px'
+        backgroundColor: '#F9F9FB',
+        padding: '24px',
+        position: 'relative',
+        overflow: 'hidden'
       }}
     >
+      {/* 🔮 AMBIENT GLOWING ORBS BACKGROUND ANIMATIONS */}
+      <div
+        className="bg-orb-1"
+        style={{
+          position: 'absolute',
+          top: '15%',
+          left: '18%',
+          width: '380px',
+          height: '380px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(255, 59, 48, 0.18) 0%, rgba(255, 149, 0, 0.08) 70%, rgba(255,255,255,0) 100%)',
+          filter: 'blur(60px)',
+          pointerEvents: 'none',
+          zIndex: 1
+        }}
+      />
+      <div
+        className="bg-orb-2"
+        style={{
+          position: 'absolute',
+          bottom: '12%',
+          right: '15%',
+          width: '450px',
+          height: '450px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(94, 92, 230, 0.16) 0%, rgba(0, 122, 255, 0.08) 70%, rgba(255,255,255,0) 100%)',
+          filter: 'blur(70px)',
+          pointerEvents: 'none',
+          zIndex: 1
+        }}
+      />
+      <div
+        className="bg-orb-3"
+        style={{
+          position: 'absolute',
+          top: '45%',
+          right: '35%',
+          width: '300px',
+          height: '300px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(255, 45, 85, 0.12) 0%, rgba(255, 204, 0, 0.06) 70%, rgba(255,255,255,0) 100%)',
+          filter: 'blur(50px)',
+          pointerEvents: 'none',
+          zIndex: 1
+        }}
+      />
+
+      {/* Modern Fashion Grid Overlay */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'radial-gradient(#1D1D1F 0.75px, transparent 0.75px)',
+          backgroundSize: '32px 32px',
+          opacity: 0.03,
+          pointerEvents: 'none',
+          zIndex: 2
+        }}
+      />
+
       <div
         className="card animate-scale-up"
         style={{
-          maxWidth: '400px',
+          maxWidth: '420px',
           width: '100%',
           padding: '48px 36px',
           textAlign: 'center',
-          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.03)',
-          border: '1px solid #E5E5EA',
-          borderRadius: '18px',
-          backgroundColor: '#FFFFFF',
-          position: 'relative'
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.02)',
+          border: '1px solid rgba(255, 255, 255, 0.8)',
+          borderRadius: '24px',
+          backgroundColor: 'rgba(255, 255, 255, 0.82)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          position: 'relative',
+          zIndex: 10
         }}
       >
         {/* Official Hazama Logo */}

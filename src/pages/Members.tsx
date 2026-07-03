@@ -38,6 +38,16 @@ export const Members: React.FC = () => {
     }
   };
 
+  const handleRoleChange = async (userToUpdate: User, newRole: string) => {
+    try {
+      await dbService.saveUser({ ...userToUpdate, role: newRole as User['role'] });
+      toast(`Đã cập nhật Phòng ban cho ${userToUpdate.name}: ${newRole}`, 'success');
+      loadUsers();
+    } catch (e) {
+      toast('Lỗi khi cập nhật phòng ban.', 'error');
+    }
+  };
+
   const handleApprovePending = async (uid: string, name: string, permission: 'Voter' | 'Viewer') => {
     try {
       await updateUserPermission(uid, permission);
@@ -170,8 +180,8 @@ export const Members: React.FC = () => {
         <div className="card" style={{ padding: '24px 0', gridColumn: 'span 2' }}>
           <div style={{ padding: '0 24px 16px 24px', borderBottom: '1px solid var(--border)' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 800 }}>Thành viên đang hoạt động ({activeUsers.length})</h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-              Phân định quyền truy cập giữa **Admin** (Quản trị hệ thống), **Voter** (Bỏ phiếu và xem kết quả) và **Viewer** (Chỉ xem kết quả biểu đồ).
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+              Phân định quyền truy cập giữa Admin (Quản trị hệ thống), Voter (Bỏ phiếu và xem kết quả) và Viewer (Chỉ xem kết quả biểu đồ).
             </p>
           </div>
 
@@ -187,17 +197,51 @@ export const Members: React.FC = () => {
               </thead>
               <tbody>
                 {activeUsers.map(u => (
-                  <tr key={u.uid} style={{ backgroundColor: u.uid === currentUser?.uid ? 'var(--accent-light)' : 'transparent' }}>
+                  <tr key={u.uid} style={{ backgroundColor: u.uid === currentUser?.uid ? 'rgba(0,0,0,0.02)' : 'transparent' }}>
                     <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontWeight: 700 }}>
-                          {u.name} {u.uid === currentUser?.uid && ' (Bạn)'}
-                        </span>
-                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{u.email}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div
+                          style={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: '50%',
+                            backgroundColor: u.permission === 'Admin' ? '#1D1D1F' : '#E5E5EA',
+                            color: u.permission === 'Admin' ? '#FFFFFF' : '#1D1D1F',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 700,
+                            fontSize: '13px',
+                            flexShrink: 0
+                          }}
+                        >
+                          {u.name ? u.name.charAt(0).toUpperCase() : 'U'}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                            {u.name} {u.uid === currentUser?.uid && <span style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 600 }}>(Bạn)</span>}
+                          </span>
+                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{u.email}</span>
+                        </div>
                       </div>
                     </td>
                     <td>
-                      <span className="badge badge-secondary">{u.role}</span>
+                      <select
+                        className="select"
+                        value={u.role}
+                        onChange={e => handleRoleChange(u, e.target.value)}
+                        style={{ padding: '6px 10px', fontSize: '12px', width: 'auto', borderRadius: '8px', fontWeight: 600 }}
+                      >
+                        <option value="Designer">Designer</option>
+                        <option value="CEO">CEO</option>
+                        <option value="Ads">Ads</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="HR">HR (Nhân sự)</option>
+                        <option value="Ke-toan">Kế toán</option>
+                        <option value="Tech">Tech / IT</option>
+                        <option value="Sales">Sales</option>
+                        <option value="Executive">Executive</option>
+                      </select>
                     </td>
                     <td>
                       <select

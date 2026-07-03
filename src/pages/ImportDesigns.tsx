@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useDb } from '../context/DbContext';
 import { useToast } from '../components/Toast';
 import { getMockTshirtSvg, dbService } from '../services/db';
@@ -154,6 +154,7 @@ const detectView = (text: string): 'f' | 'b' => {
   
   if (
     cleanText.includes('front') || 
+    cleanText.includes('font') || 
     cleanText.includes('truoc') || 
     cleanText.includes('trước') || 
     /\b(f|t)\b/.test(cleanText) ||
@@ -171,20 +172,39 @@ const parseFileInfo = (filename: string, relativePath = ''): { designCode: strin
   const combinedText = `${relativePath.toLowerCase()} / ${cleanName}`;
   const parts = cleanName.split(/[-_\s]+/);
   
+  const knownColors = [
+    ...supportedColors.map(c => c.value),
+    'den', 'đen', 'black',
+    'trang', 'trắng', 'white',
+    'xam', 'xám', 'grey', 'gray',
+    'navy', 'kem', 'be', 'beige',
+    'do', 'đỏ', 'red',
+    'xanh', 'blue', 'green', 'xanhla', 'xanh-la',
+    'nau', 'nâu', 'brown',
+    'hong', 'hồng', 'pink',
+    'tim', 'tím', 'purple',
+    'vang', 'vàng', 'yellow',
+    'cam', 'orange'
+  ];
+  
+  const ignoreKeywords = ['truoc', 'trước', 'sau', 'front', 'font', 'back', 'f', 'b', 't', 's', ...knownColors];
+  
   let designCode = '';
   
-  // 1. Detect Design Code (first part of filename, or parent folder name if filename is generic like 'truoc')
-  if (parts.length > 0 && !['truoc', 'trước', 'sau', 'front', 'back', 'f', 'b', 't', 's'].includes(parts[0])) {
-    designCode = parts[0].toUpperCase();
+  // 1. Detect Design Code (first meaningful non-color/non-view keyword)
+  if (parts.length > 0 && !ignoreKeywords.includes(parts[0].toLowerCase())) {
+    // If first part is "mock" and second part is number (e.g. "mock 1"), combine them as "MOCK 1"
+    if (parts[0].toLowerCase() === 'mock' && parts.length > 1 && /^\d+$/.test(parts[1])) {
+      designCode = `${parts[0].toUpperCase()} ${parts[1]}`;
+    } else {
+      designCode = parts[0].toUpperCase();
+    }
   } else {
     // Try to extract design code from parent folders in relative path
     const pathParts = relativePath.split(/[/\\]+/).filter(Boolean);
-    // Find the first folder name that isn't a color or view keyword
     for (let i = pathParts.length - 2; i >= 0; i--) {
       const p = pathParts[i].toLowerCase();
-      if (
-        !['truoc', 'trước', 'sau', 'front', 'back', 'f', 'b', 't', 's', 'den', 'đen', 'black', 'white', 'trang', 'trắng', 'grey', 'xám', 'navy'].includes(p)
-      ) {
+      if (!ignoreKeywords.includes(p)) {
         designCode = pathParts[i].toUpperCase();
         break;
       }
@@ -195,10 +215,55 @@ const parseFileInfo = (filename: string, relativePath = ''): { designCode: strin
   const view = detectView(combinedText);
   
   return { 
-    designCode: designCode || 'HZ-NEW', 
+    designCode: designCode || 'MOCK', 
     color, 
     view 
   };
+};
+
+interface GroupHeaderCodeInputProps {
+  groupCode: string;
+  onCodeChange: (newCode: string) => void;
+}
+
+const GroupHeaderCodeInput: React.FC<GroupHeaderCodeInputProps> = ({ groupCode, onCodeChange }) => {
+  const [val, setVal] = useState(groupCode === 'HZ-NEW' ? '' : groupCode);
+
+  useEffect(() => {
+    setVal(groupCode === 'HZ-NEW' ? '' : groupCode);
+  }, [groupCode]);
+
+  const handleCommit = () => {
+    const cleanCode = val.trim().toUpperCase();
+    if (cleanCode && cleanCode !== groupCode) {
+      onCodeChange(cleanCode);
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      value={val}
+      onChange={e => setVal(e.target.value)}
+      onBlur={handleCommit}
+      onKeyDown={e => {
+        if (e.key === 'Enter') {
+          handleCommit();
+        }
+      }}
+      placeholder="Mã thiết kế (Ví dụ: HZ01)..."
+      style={{ 
+        borderRadius: '8px', 
+        border: '1px solid #D2D2D7', 
+        padding: '6px 12px', 
+        fontSize: '14px', 
+        fontWeight: 700,
+        width: '240px', 
+        outline: 'none',
+        color: 'var(--text-primary)'
+      }}
+    />
+  );
 };
 
 export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab }) => {
@@ -518,6 +583,15 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
     groups[code].push(item);
   });
 
+  const handleMergeAllToSingleGroup = () => {
+    if (filesToReview.length === 0) return;
+    const inputCode = prompt('Nhập Mã thiết kế chung cho tất cả ảnh lượt này:', 'MOCK');
+    if (inputCode === null) return; // User canceled
+    const cleanCode = inputCode.trim().toUpperCase() || 'MOCK';
+    setFilesToReview(prev => prev.map(item => ({ ...item, designCode: cleanCode })));
+    toast(`Đã gộp tất cả ${filesToReview.length} ảnh thành 1 mẫu thiết kế [${cleanCode}]!`, 'success');
+  };
+
   return (
     <div 
       className="animate-fade-in" 
@@ -585,7 +659,26 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
                   </p>
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  {Object.keys(groups).length > 1 && (
+                    <button
+                      onClick={handleMergeAllToSingleGroup}
+                      className="btn"
+                      style={{
+                        fontSize: '12px',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        backgroundColor: '#5E5CE6',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        fontWeight: 600
+                      }}
+                      title="Gộp tất cả ảnh trong đợt này về chung 1 mã thiết kế duy nhất"
+                    >
+                      <span>Gộp tất cả thành 1 mẫu</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="btn btn-outline"
@@ -628,26 +721,12 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Mã thiết kế</span>
-                        <input
-                          type="text"
-                          value={groupCode === 'HZ-NEW' ? '' : groupCode}
-                          onChange={e => {
-                            const newCode = e.target.value.trim().toUpperCase();
-                            // Update all items in this group
+                        <GroupHeaderCodeInput
+                          groupCode={groupCode}
+                          onCodeChange={(newCode) => {
                             setFilesToReview(prev =>
-                              prev.map(item => item.designCode.trim().toUpperCase() === groupCode ? { ...item, designCode: newCode || 'HZ-NEW' } : item)
+                              prev.map(item => item.designCode.trim().toUpperCase() === groupCode ? { ...item, designCode: newCode } : item)
                             );
-                          }}
-                          placeholder="Mã thiết kế (Ví dụ: HZ01)..."
-                          style={{ 
-                            borderRadius: '8px', 
-                            border: '1px solid #D2D2D7', 
-                            padding: '6px 12px', 
-                            fontSize: '14px', 
-                            fontWeight: 700,
-                            width: '240px', 
-                            outline: 'none',
-                            color: 'var(--text-primary)'
                           }}
                         />
                       </div>

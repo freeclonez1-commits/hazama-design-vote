@@ -587,31 +587,32 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
           zIndex: 90
         }}
       >
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '12px' }}>
           
           {/* Logo & Info */}
-          <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
             <img 
               src="https://bizweb.dktcdn.net/100/558/373/theme_temp/1024758/assets/logo-hazama-01-831cb57d-a357-419f-a4d9-e5d7a10f7f69-7f9fdab7-8bb7-494a-b91f-d4ba2604b1ce.png?1782204204270" 
               alt="Hazama Logo" 
               style={{ 
-                height: '32px', 
+                height: '38px', 
+                maxHeight: '38px',
                 width: 'auto', 
                 objectFit: 'contain',
                 display: 'block'
               }} 
             />
-            <div style={{ height: '14px', borderLeft: '1px solid var(--border)', marginLeft: '16px', marginRight: '16px' }} />
-            <span style={{ display: 'inline-block', backgroundColor: 'rgba(0, 0, 0, 0.05)', color: 'var(--text-secondary)', fontWeight: 600, borderRadius: '9999px', padding: '3px 10px', fontSize: '10px' }}>
+            <div className="hide-mobile" style={{ height: '14px', borderLeft: '1px solid var(--border)', marginLeft: '8px', marginRight: '8px' }} />
+            <span className="hide-mobile" style={{ display: 'inline-block', backgroundColor: 'rgba(0, 0, 0, 0.05)', color: 'var(--text-secondary)', fontWeight: 600, borderRadius: '9999px', padding: '3px 10px', fontSize: '10px', whiteSpace: 'nowrap' }}>
               Bộ sưu tập: {activeSession.collection}
             </span>
           </div>
 
           {/* User Profile Info & Control */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
             <div style={{ textAlign: 'right' }}>
-              <p style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>{user?.name}</p>
-              <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+              <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '110px' }}>{user?.name}</p>
+              <p className="hide-mobile" style={{ fontSize: '10px', color: 'var(--text-secondary)', margin: 0 }}>
                 {user?.role}
               </p>
             </div>
@@ -620,7 +621,7 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
               <button
                 onClick={() => window.location.hash = '#/admin'}
                 className="btn btn-outline"
-                style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '6px' }}
+                style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '8px', fontWeight: 600 }}
                 title="Quản trị viên"
               >
                 Admin
@@ -630,7 +631,7 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
             <button
               onClick={logout}
               className="btn btn-outline"
-              style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '6px', borderColor: 'var(--danger-light)', color: 'var(--danger)' }}
+              style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '8px', borderColor: 'var(--danger-light)', color: 'var(--danger)', fontWeight: 600 }}
               title="Đăng xuất"
             >
               Đăng xuất
@@ -640,7 +641,7 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
       </header>
 
       {/* BODY CONTENT CONTAINER */}
-      <div style={{ maxWidth: '1200px', margin: '32px auto 0 auto', padding: '0 24px' }} className="animate-fade-in">
+      <div style={{ maxWidth: '1280px', margin: '20px auto 0 auto', padding: '0 16px' }} className="animate-fade-in">
         
         {/* SESSION STATUS / COUNTDOWN HERO BANNER */}
         <div
@@ -650,15 +651,15 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
-            gap: '24px',
-            marginBottom: '32px',
-            padding: '32px 0 16px 0',
+            gap: '16px',
+            marginBottom: '24px',
+            padding: '16px 0',
             borderBottom: '1px solid var(--border)'
           }}
         >
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.8px', lineHeight: '1.2' }}>{activeSession.title}</h1>
-            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '6px', fontWeight: 400 }}>
+          <div style={{ flex: 1, minWidth: '240px' }}>
+            <h1 style={{ fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.6px', lineHeight: '1.2', margin: 0 }}>{activeSession.title}</h1>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px', fontWeight: 400 }}>
               Mỗi nhân sự được chọn tối đa <strong>{activeSession.maxVotesPerUser} mẫu thiết kế</strong> yêu thích nhất.
             </p>
           </div>
@@ -948,7 +949,7 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 grid-cols-2-sm grid-cols-3-md grid-cols-4-lg grid-cols-5-lg" style={{ gap: '24px' }}>
+              <div className="grid grid-cols-1 grid-cols-2-sm grid-cols-3-md grid-cols-4-lg" style={{ gap: '24px' }}>
                 {designs.map(d => {
                   const dVars = variants.filter(v => v.designId === d.id);
                   const isSelected = selectedIds.includes(d.id);
@@ -1005,17 +1006,18 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
       )}
 
       {/* DETAIL VIEW LOOKBOOK MODAL */}
+      {/* DETAIL VIEW LOOKBOOK MODAL */}
       <Modal
         isOpen={!!detailDesign}
         onClose={() => setDetailDesign(null)}
-        title={detailDesign ? `${detailDesign.code} - ${detailDesign.name}` : ''}
-        maxWidth="780px"
+        title={detailDesign ? `${detailDesign.code} — ${detailDesign.name}` : ''}
+        maxWidth="860px"
       >
         {detailDesign && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div className="detail-modal-layout">
               
-              {/* Left Panel: Big Image Display (Aspect ratio 3:4, sharp corners) with Hover Magnifier */}
+              {/* Left Panel: Big Image Display with Smooth Rounded Corners */}
               <div
                 onMouseMove={handleMagnifierMouseMove}
                 onMouseLeave={handleMagnifierMouseLeave}
@@ -1023,10 +1025,10 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                 style={{
                   flex: 1,
                   aspectRatio: '3 / 4',
-                  borderRadius: 0,
+                  borderRadius: '16px',
                   overflow: 'hidden',
-                  backgroundColor: '#FAF9F6',
-                  border: '1px solid var(--border)',
+                  backgroundColor: '#F9F9FB',
+                  border: '1px solid #E5E5EA',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1039,7 +1041,7 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                     <img
                       src={activeModalVariant.imageUrl}
                       alt={detailDesign.name}
-                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '16px' }}
                     />
                     
                     {/* Magnifier Circle Glass */}
@@ -1071,8 +1073,18 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                 )}
 
                 {/* Floating View Indicator Overlay */}
-                <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 11 }}>
-                  <span className="badge badge-secondary" style={{ backgroundColor: '#1D1D1F', color: '#FFF', borderRadius: 0, padding: '4px 8px', fontSize: '10px' }}>
+                <div style={{ position: 'absolute', top: 14, left: 14, zIndex: 11 }}>
+                  <span
+                    style={{
+                      backgroundColor: '#1D1D1F',
+                      color: '#FFFFFF',
+                      borderRadius: '8px',
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      letterSpacing: '0.5px'
+                    }}
+                  >
                     {viewTab === 'f' ? 'MẶT TRƯỚC' : 'MẶT SAU'}
                   </span>
                 </div>
@@ -1081,9 +1093,19 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
               {/* Right Panel: Controls & Options */}
               <div className="detail-modal-sidebar">
                 
+                {/* Product Title & Code Header in Modal */}
+                <div style={{ borderBottom: '1px solid #E5E5EA', paddingBottom: '16px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    {detailDesign.code}
+                  </span>
+                  <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#1D1D1F', margin: '4px 0 0 0', letterSpacing: '-0.4px' }}>
+                    {detailDesign.name}
+                  </h3>
+                </div>
+
                 {/* Colors Select */}
                 <div>
-                  <h4 style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '12px' }}>
+                  <h4 style={{ fontSize: '11px', fontWeight: 700, color: '#8E8E93', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '10px' }}>
                     MÀU SẮC CÓ SẴN ({colorOptions.length})
                   </h4>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -1096,26 +1118,27 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                           style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '6px',
+                            gap: '8px',
                             padding: '8px 16px',
-                            borderRadius: 0,
-                            border: isActive ? '1px solid var(--text-primary)' : '1px solid var(--border)',
-                            backgroundColor: isActive ? 'var(--text-primary)' : '#FFFFFF',
+                            borderRadius: '20px',
+                            border: isActive ? '2px solid #1D1D1F' : '1px solid #E5E5EA',
+                            backgroundColor: isActive ? '#1D1D1F' : '#FFFFFF',
                             cursor: 'pointer',
-                            fontSize: '12px',
+                            fontSize: '13px',
                             fontWeight: 700,
-                            color: isActive ? '#FFFFFF' : 'var(--text-primary)',
+                            color: isActive ? '#FFFFFF' : '#1D1D1F',
                             textTransform: 'capitalize',
-                            transition: 'all var(--transition-fast)'
+                            boxShadow: isActive ? '0 4px 12px rgba(0,0,0,0.12)' : 'none',
+                            transition: 'all 0.2s ease'
                           }}
                         >
                           <span
                             style={{
-                              width: 8,
-                              height: 8,
+                              width: 10,
+                              height: 10,
                               borderRadius: '50%',
                               backgroundColor: COLORS_MAP[color] || '#CCCCCC',
-                              border: color === 'white' ? '1px solid var(--border)' : 'none'
+                              border: color === 'white' ? '1px solid #D2D2D7' : 'none'
                             }}
                           />
                           <span>{color}</span>
@@ -1125,43 +1148,21 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                   </div>
                 </div>
 
-                {/* Front / Back Toggle Buttons (Typographic tabs) */}
-                <div style={{ marginTop: '8px' }}>
-                  <h4 style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '12px' }}>
+                {/* Front / Back Toggle Buttons (iOS Segmented Control) */}
+                <div>
+                  <h4 style={{ fontSize: '11px', fontWeight: 700, color: '#8E8E93', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '10px' }}>
                     GÓC NHÌN (VIEW)
                   </h4>
-                  <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
+                  <div className="view-segmented-control">
                     <button
                       onClick={() => setViewTab('f')}
-                      style={{
-                        flex: 1,
-                        padding: '12px 0',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        border: 'none',
-                        cursor: 'pointer',
-                        backgroundColor: 'transparent',
-                        color: viewTab === 'f' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        borderBottom: viewTab === 'f' ? '2px solid var(--text-primary)' : '2px solid transparent',
-                        transition: 'all var(--transition-fast)'
-                      }}
+                      className={`view-segmented-btn ${viewTab === 'f' ? 'view-segmented-btn-active' : ''}`}
                     >
                       MẶT TRƯỚC
                     </button>
                     <button
                       onClick={() => setViewTab('b')}
-                      style={{
-                        flex: 1,
-                        padding: '12px 0',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        border: 'none',
-                        cursor: 'pointer',
-                        backgroundColor: 'transparent',
-                        color: viewTab === 'b' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        borderBottom: viewTab === 'b' ? '2px solid var(--text-primary)' : '2px solid transparent',
-                        transition: 'all var(--transition-fast)'
-                      }}
+                      className={`view-segmented-btn ${viewTab === 'b' ? 'view-segmented-btn-active' : ''}`}
                     >
                       MẶT SAU
                     </button>
@@ -1176,10 +1177,10 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                   )}
                 </div>
 
-                {/* Additional Info Box */}
-                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  <p>Mã thiết kế: <strong>{detailDesign.code}</strong></p>
-                  {activeModalVariant && <p>Tên file gốc: <span style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{activeModalVariant.originalFileName}</span></p>}
+                {/* Design Summary Info */}
+                <div style={{ borderTop: '1px solid #E5E5EA', paddingTop: '14px', marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#8E8E93' }}>
+                  <p style={{ margin: 0 }}>Bộ sưu tập: <strong style={{ color: '#1D1D1F' }}>{activeSession.collection}</strong></p>
+                  <p style={{ margin: 0 }}>Tổng số biến thể: <strong style={{ color: '#1D1D1F' }}>{variants.filter(v => v.designId === detailDesign.id).length} ảnh</strong></p>
                 </div>
               </div>
             </div>
@@ -1188,23 +1189,47 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
             {!showSuccessScreen && !isClosed && !isNotPublishedYet && (
               <div
                 style={{
-                  borderTop: '1px solid var(--border)',
-                  paddingTop: '20px',
+                  borderTop: '1px solid #E5E5EA',
+                  paddingTop: '16px',
                   display: 'flex',
                   justifyContent: 'space-between',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px'
                 }}
               >
-                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  Trạng thái: <strong style={{ color: 'var(--text-primary)' }}>{selectedIds.includes(detailDesign.id) ? 'Đang chọn' : 'Chưa chọn'}</strong>
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>Trạng thái:</span>
+                  <span
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      backgroundColor: selectedIds.includes(detailDesign.id) ? '#E8F5E9' : '#F2F2F7',
+                      color: selectedIds.includes(detailDesign.id) ? '#2E7D32' : '#8E8E93'
+                    }}
+                  >
+                    {selectedIds.includes(detailDesign.id) ? '✓ Đã chọn bình chọn' : 'Chưa chọn'}
+                  </span>
+                </div>
 
                 <button
                   onClick={() => handleSelectDesign(detailDesign.id)}
-                  className={`btn ${selectedIds.includes(detailDesign.id) ? 'btn-outline' : 'btn-primary'}`}
-                  style={{ borderRadius: 0, padding: '10px 20px', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}
+                  style={{
+                    borderRadius: '14px',
+                    padding: '12px 28px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    border: selectedIds.includes(detailDesign.id) ? '1px solid #E5E5EA' : 'none',
+                    backgroundColor: selectedIds.includes(detailDesign.id) ? '#FFFFFF' : '#1D1D1F',
+                    color: selectedIds.includes(detailDesign.id) ? 'var(--danger)' : '#FFFFFF',
+                    boxShadow: selectedIds.includes(detailDesign.id) ? 'none' : '0 4px 16px rgba(0, 0, 0, 0.16)'
+                  }}
                 >
-                  {selectedIds.includes(detailDesign.id) ? 'Bỏ chọn mẫu này' : 'Bình chọn mẫu này'}
+                  {selectedIds.includes(detailDesign.id) ? 'Bỏ chọn mẫu này' : 'BÌNH CHỌN MẪU NÀY'}
                 </button>
               </div>
             )}

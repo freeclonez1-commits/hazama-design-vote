@@ -578,6 +578,7 @@ body {
 @media (min-width: 768px) {
   .detail-modal-layout {
     flex-direction: row;
+    align-items: stretch;
   }
 }
 
@@ -590,8 +591,63 @@ body {
 
 @media (min-width: 768px) {
   .detail-modal-sidebar {
-    width: 280px;
+    width: 320px;
+    flex-shrink: 0;
   }
+}
+
+/* iOS Style Segmented Control for Front/Back View */
+.view-segmented-control {
+  display: flex;
+  background-color: #F2F2F7;
+  padding: 4px;
+  border-radius: 12px;
+  gap: 4px;
+}
+
+.view-segmented-btn {
+  flex: 1;
+  padding: 10px 0;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background-color: transparent;
+  color: #8E8E93;
+  transition: all 0.2s ease;
+}
+
+.view-segmented-btn-active {
+  background-color: #FFFFFF;
+  color: #1D1D1F;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Ambient Glowing Orbs Animation for Login Background */
+@keyframes floatOrb1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(80px, -60px) scale(1.15); }
+}
+
+@keyframes floatOrb2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-70px, 80px) scale(1.1); }
+}
+
+@keyframes floatOrb3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(60px, 70px) scale(1.2); }
+}
+
+.bg-orb-1 {
+  animation: floatOrb1 18s ease-in-out infinite;
+}
+.bg-orb-2 {
+  animation: floatOrb2 22s ease-in-out infinite;
+}
+.bg-orb-3 {
+  animation: floatOrb3 20s ease-in-out infinite;
 }
 
 /* Product Grid Card (Hazama Shop Style) */

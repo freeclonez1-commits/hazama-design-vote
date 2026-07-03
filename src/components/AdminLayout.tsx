@@ -31,22 +31,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     <div className="admin-layout">
       {/* Desktop Sidebar */}
       <aside className="admin-sidebar animate-fade-in">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '0 8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 8px', marginBottom: '8px' }}>
           <img 
             src="https://bizweb.dktcdn.net/100/558/373/theme_temp/1024758/assets/logo-hazama-01-831cb57d-a357-419f-a4d9-e5d7a10f7f69-7f9fdab7-8bb7-494a-b91f-d4ba2604b1ce.png?1782204204270" 
             alt="Hazama Logo" 
             style={{ 
-              height: '30px', 
+              height: '34px', 
               width: 'auto', 
               objectFit: 'contain',
               alignSelf: 'flex-start'
             }} 
           />
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <span style={{ fontSize: '9px', fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '1px', textTransform: 'uppercase' }}>
-              Admin Panel
-            </span>
-          </div>
+          <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--accent)', letterSpacing: '1.2px', textTransform: 'uppercase' }}>
+            ADMIN PANEL
+          </span>
         </div>
 
         {/* Navigation list */}
