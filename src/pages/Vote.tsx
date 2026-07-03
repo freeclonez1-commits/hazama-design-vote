@@ -303,15 +303,13 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
     toast(`Hoàn tất tải toàn bộ ${variants.length} ảnh của Bộ sưu tập!`, 'success');
   };
 
-  // Fullscreen Image Lightbox State
-  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+
 
   // High performance DOM Ref Magnifier Handler (60fps - Zero React Re-render Lag)
   const magnifierRef = useRef<HTMLDivElement | null>(null);
   const imageContainerRef = useRef<HTMLDivElement | null>(null);
 
   const handleUpdateMagnifierPosition = (clientX: number, clientY: number, container: HTMLDivElement) => {
-    if (window.innerWidth <= 768) return;
     const glass = magnifierRef.current;
     if (!glass || !activeModalVariant) return;
 
@@ -319,7 +317,8 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
     const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
     const y = Math.max(0, Math.min(clientY - rect.top, rect.height));
 
-    const glassRadius = 85;
+    const isMobile = window.innerWidth <= 768;
+    const glassRadius = isMobile ? 65 : 85;
     const zoomFactor = 2.4;
 
     glass.style.display = 'block';
@@ -340,7 +339,12 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
     handleUpdateMagnifierPosition(e.clientX, e.clientY, e.currentTarget);
   };
 
-
+  const handleMagnifierTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length > 0) {
+      const touch = e.touches[0];
+      handleUpdateMagnifierPosition(touch.clientX, touch.clientY, e.currentTarget);
+    }
+  };
 
   const handleMagnifierMouseLeave = () => {
     handleHideMagnifier();
@@ -1197,11 +1201,14 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                 ref={imageContainerRef}
                 onMouseMove={handleMagnifierMouseMove}
                 onMouseLeave={handleMagnifierMouseLeave}
-                onClick={() => {
-                  if (activeModalVariant) {
-                    setFullscreenImage(activeModalVariant.imageUrl);
+                onTouchMove={handleMagnifierTouchMove}
+                onTouchStart={e => {
+                  if (e.touches.length > 0) {
+                    const touch = e.touches[0];
+                    handleUpdateMagnifierPosition(touch.clientX, touch.clientY, e.currentTarget);
                   }
                 }}
+                onTouchEnd={handleHideMagnifier}
                 style={{
                   flex: 1,
                   aspectRatio: '3 / 4',
@@ -1806,60 +1813,6 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Fullscreen Image Lightbox Preview Modal */}
-      {fullscreenImage && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
-            backgroundColor: 'rgba(0, 0, 0, 0.92)',
-            backdropFilter: 'blur(10px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px'
-          }}
-          onClick={() => setFullscreenImage(null)}
-        >
-          <button
-            onClick={() => setFullscreenImage(null)}
-            style={{
-              position: 'absolute',
-              top: '20px',
-              right: '20px',
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
-              color: '#FFFFFF',
-              border: 'none',
-              borderRadius: '50%',
-              width: '44px',
-              height: '44px',
-              fontSize: '20px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 10000
-            }}
-          >
-            ✕
-          </button>
-          <img
-            src={fullscreenImage}
-            alt="Fullscreen preview"
-            style={{
-              maxWidth: '92vw',
-              maxHeight: '92vh',
-              objectFit: 'contain',
-              borderRadius: '12px',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
-            }}
-            onClick={e => e.stopPropagation()}
-          />
         </div>
       )}
 
