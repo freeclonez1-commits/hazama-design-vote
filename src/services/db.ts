@@ -1,4 +1,4 @@
-import type { User, VoteSession, Design, Variant, Vote, ImportLog } from '../types/models';
+import type { User, VoteSession, Design, Variant, Vote, ImportLog, DesignComment } from '../types/models';
 import {
   collection,
   doc,
@@ -68,7 +68,8 @@ const KEYS = {
   DESIGNS: 'hazama_designs',
   VARIANTS: 'hazama_variants',
   VOTES: 'hazama_votes',
-  IMPORT_LOGS: 'hazama_import_logs'
+  IMPORT_LOGS: 'hazama_import_logs',
+  COMMENTS: 'hazama_comments'
 };
 
 // Helper utilities for local storage fetch/save
@@ -1034,6 +1035,58 @@ export const dbService = {
 
     const logs = getStorage<ImportLog[]>(KEYS.IMPORT_LOGS, []);
     setStorage(KEYS.IMPORT_LOGS, [...newLogs, ...logs]);
+  },
+
+  // ----------------------------------------------------
+  // Comments / Internal Feedback APIs
+  // ----------------------------------------------------
+  async listComments(designId: string): Promise<DesignComment[]> {
+    if (isFirebaseEnabled && db) {
+      try {
+        const q = query(collection(db, 'comments'), where('designId', '==', designId));
+        const snap = await getDocs(q);
+        return snap.docs
+          .map(d => d.data() as DesignComment)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      } catch (e) {
+        console.error("Firestore listComments error:", e);
+      }
+    }
+
+    const comments = getStorage<DesignComment[]>(KEYS.COMMENTS, []);
+    return comments
+      .filter(c => c.designId === designId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  },
+
+  async saveComment(comment: DesignComment): Promise<DesignComment> {
+    if (isFirebaseEnabled && db) {
+      try {
+        await setDoc(doc(db, 'comments', comment.id), comment);
+        return comment;
+      } catch (e) {
+        console.error("Firestore saveComment error:", e);
+      }
+    }
+
+    const comments = getStorage<DesignComment[]>(KEYS.COMMENTS, []);
+    const updated = [comment, ...comments];
+    setStorage(KEYS.COMMENTS, updated);
+    return comment;
+  },
+
+  async deleteComment(commentId: string): Promise<void> {
+    if (isFirebaseEnabled && db) {
+      try {
+        await deleteDoc(doc(db, 'comments', commentId));
+        return;
+      } catch (e) {
+        console.error("Firestore deleteComment error:", e);
+      }
+    }
+
+    const comments = getStorage<DesignComment[]>(KEYS.COMMENTS, []);
+    setStorage(KEYS.COMMENTS, comments.filter(c => c.id !== commentId));
   },
 
   // Reset entire database to pre-populated mock state

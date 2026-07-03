@@ -4,13 +4,24 @@ import { useDb } from '../context/DbContext';
 import { useToast } from '../components/Toast';
 import { DesignCard } from '../components/DesignCard';
 import { Modal } from '../components/Modal';
-import type { Design, Variant } from '../types/models';
+import type { Design, Variant, DesignComment } from '../types/models';
+import { dbService } from '../services/db';
 import {
   Clock,
   CheckCircle,
   AlertCircle,
   Trophy,
-  ExternalLink
+  ExternalLink,
+  MessageSquare,
+  Send,
+  Trash2,
+  Lock,
+  Download,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Layers,
+  FolderDown
 } from 'lucide-react';
 
 const ConfettiCanvas: React.FC = () => {
@@ -143,6 +154,152 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [detailVariants, setDetailVariants] = useState<Variant[]>([]);
   const [viewTab, setViewTab] = useState<'f' | 'b'>('f');
+
+  // Internal Feedback Comments States
+  const [comments, setComments] = useState<DesignComment[]>([]);
+  const [commentInput, setCommentInput] = useState('');
+  const [isAnonymousComment, setIsAnonymousComment] = useState(false);
+
+  useEffect(() => {
+    if (detailDesign) {
+      loadDesignComments(detailDesign.id);
+    }
+  }, [detailDesign]);
+
+  const loadDesignComments = async (designId: string) => {
+    try {
+      const data = await dbService.listComments(designId);
+      setComments(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentInput.trim() || !detailDesign || !user) return;
+    try {
+      const newComment: DesignComment = {
+        id: `comment_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        designId: detailDesign.id,
+        userEmail: user.email,
+        userName: user.name,
+        userRole: user.role,
+        isAnonymous: isAnonymousComment,
+        content: commentInput.trim(),
+        createdAt: new Date().toISOString()
+      };
+      await dbService.saveComment(newComment);
+      setCommentInput('');
+      toast('Đã gửi góp ý thành công!', 'success');
+      loadDesignComments(detailDesign.id);
+    } catch (e) {
+      toast('Có lỗi khi gửi góp ý.', 'error');
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      await dbService.deleteComment(commentId);
+      toast('Đã xóa góp ý.', 'info');
+      if (detailDesign) loadDesignComments(detailDesign.id);
+    } catch (e) {
+      toast('Lỗi khi xóa.', 'error');
+    }
+  };
+
+  // Download Options Menu State
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+
+  // High quality lossless image downloader via Blob URL
+  const downloadSingleImageBlob = async (url: string, fileName: string) => {
+    try {
+      if (url.startsWith('data:')) {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      } else {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      }
+    } catch (e) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  };
+
+  // Option 1: Download currently viewed image
+  const handleDownloadActiveVariant = async () => {
+    if (!activeModalVariant) return;
+    setShowDownloadMenu(false);
+    let fileName = activeModalVariant.originalFileName;
+    if (!fileName) {
+      const ext = activeModalVariant.imageUrl.includes('png') ? 'png' : 'jpg';
+      fileName = `${detailDesign?.code || 'design'}_${selectedColor}_${viewTab === 'f' ? 'front' : 'back'}.${ext}`;
+    }
+    await downloadSingleImageBlob(activeModalVariant.imageUrl, fileName);
+    toast(`Đã tải xuống ảnh gốc: ${fileName}`, 'success');
+  };
+
+  // Option 2: Download ALL variants of current Design (Project)
+  const handleDownloadCurrentDesignAllImages = async () => {
+    if (!detailDesign) return;
+    setShowDownloadMenu(false);
+    const designVariants = variants.filter(v => v.designId === detailDesign.id);
+    if (designVariants.length === 0) {
+      toast('Không có ảnh nào trong mẫu này.', 'warning');
+      return;
+    }
+
+    toast(`Đang tải toàn bộ ${designVariants.length} ảnh của mẫu ${detailDesign.code}...`, 'info');
+    for (let i = 0; i < designVariants.length; i++) {
+      const v = designVariants[i];
+      let fn = v.originalFileName || `${detailDesign.code}_${v.color}_${v.view === 'f' ? 'front' : 'back'}.${v.imageUrl.includes('png') ? 'png' : 'jpg'}`;
+      await downloadSingleImageBlob(v.imageUrl, fn);
+      await new Promise(r => setTimeout(r, 300));
+    }
+    toast(`Hoàn tất tải ${designVariants.length} ảnh của ${detailDesign.code}!`, 'success');
+  };
+
+  // Option 3: Download ALL images of entire Collection (Session)
+  const handleDownloadCollectionAllImages = async () => {
+    if (!activeSession) return;
+    setShowDownloadMenu(false);
+    if (variants.length === 0) {
+      toast('Bộ sưu tập chưa có hình ảnh nào.', 'warning');
+      return;
+    }
+
+    toast(`Đang khởi tạo tải ${variants.length} ảnh toàn bộ Bộ sưu tập ${activeSession.collection}...`, 'info');
+    for (let i = 0; i < variants.length; i++) {
+      const v = variants[i];
+      const parentDesign = designs.find(d => d.id === v.designId);
+      const code = parentDesign ? parentDesign.code : 'MOCK';
+      let fn = v.originalFileName || `${code}_${v.color}_${v.view === 'f' ? 'front' : 'back'}.${v.imageUrl.includes('png') ? 'png' : 'jpg'}`;
+      await downloadSingleImageBlob(v.imageUrl, fn);
+      await new Promise(r => setTimeout(r, 250));
+    }
+    toast(`Hoàn tất tải toàn bộ ${variants.length} ảnh của Bộ sưu tập!`, 'success');
+  };
 
   // Magnifier Zoom State
   const [magnifierState, setMagnifierState] = useState({
@@ -1072,22 +1229,210 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                   </div>
                 )}
 
-                {/* Floating View Indicator Overlay */}
-                <div style={{ position: 'absolute', top: 14, left: 14, zIndex: 11 }}>
-                  <span
-                    style={{
-                      backgroundColor: '#1D1D1F',
-                      color: '#FFFFFF',
-                      borderRadius: '8px',
-                      padding: '4px 10px',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      letterSpacing: '0.5px'
-                    }}
-                  >
-                    {viewTab === 'f' ? 'MẶT TRƯỚC' : 'MẶT SAU'}
-                  </span>
-                </div>
+                {/* Left/Right Next/Prev Navigation Buttons Overlay */}
+                {detailVariants.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => {
+                        const idx = detailVariants.findIndex(v => v.id === activeModalVariant?.id);
+                        const prevIdx = (idx - 1 + detailVariants.length) % detailVariants.length;
+                        const prevVar = detailVariants[prevIdx];
+                        if (prevVar) {
+                          setSelectedColor(prevVar.color);
+                          setViewTab(prevVar.view);
+                        }
+                      }}
+                      style={{
+                        position: 'absolute',
+                        left: 12,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        color: '#1D1D1F',
+                        border: '1px solid #D2D2D7',
+                        borderRadius: '50%',
+                        width: 36,
+                        height: 36,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                        zIndex: 12,
+                        transition: 'all 0.2s ease'
+                      }}
+                      title="Xem ảnh trước"
+                    >
+                      <ChevronLeft size={18} />
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const idx = detailVariants.findIndex(v => v.id === activeModalVariant?.id);
+                        const nextIdx = (idx + 1) % detailVariants.length;
+                        const nextVar = detailVariants[nextIdx];
+                        if (nextVar) {
+                          setSelectedColor(nextVar.color);
+                          setViewTab(nextVar.view);
+                        }
+                      }}
+                      style={{
+                        position: 'absolute',
+                        right: 12,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        color: '#1D1D1F',
+                        border: '1px solid #D2D2D7',
+                        borderRadius: '50%',
+                        width: 36,
+                        height: 36,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                        zIndex: 12,
+                        transition: 'all 0.2s ease'
+                      }}
+                      title="Xem ảnh tiếp theo"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                  </>
+                )}
+
+                {/* Floating Admin Download Options Menu Overlay */}
+                {user?.permission === 'Admin' && activeModalVariant && (
+                  <div style={{ position: 'absolute', top: 14, right: 14, zIndex: 20 }}>
+                    <button
+                      onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+                      style={{
+                        backgroundColor: '#1D1D1F',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '6px 12px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
+                        transition: 'all 0.2s ease'
+                      }}
+                      title="Tùy chọn tải ảnh gốc"
+                    >
+                      <Download size={12} />
+                      <span>Tải ảnh</span>
+                      <ChevronDown size={12} />
+                    </button>
+
+                    {/* Download Dropdown Options Menu */}
+                    {showDownloadMenu && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '100%',
+                          right: 0,
+                          marginTop: '6px',
+                          backgroundColor: '#FFFFFF',
+                          borderRadius: '12px',
+                          border: '1px solid #E5E5EA',
+                          boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+                          width: '240px',
+                          padding: '6px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '2px',
+                          zIndex: 30
+                        }}
+                      >
+                        <button
+                          onClick={handleDownloadActiveVariant}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            color: '#1D1D1F',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F2F2F7'}
+                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Download size={14} color="var(--accent)" />
+                          <div>
+                            <div>Tải ảnh đang xem</div>
+                            <div style={{ fontSize: '10px', color: '#8E8E93', fontWeight: 400 }}>File gốc ({selectedColor})</div>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={handleDownloadCurrentDesignAllImages}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            color: '#1D1D1F',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F2F2F7'}
+                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Layers size={14} color="#34C759" />
+                          <div>
+                            <div>Tải full ảnh Mẫu này</div>
+                            <div style={{ fontSize: '10px', color: '#8E8E93', fontWeight: 400 }}>{detailDesign.code} ({variants.filter(v => v.designId === detailDesign.id).length} ảnh)</div>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={handleDownloadCollectionAllImages}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            color: '#1D1D1F',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F2F2F7'}
+                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <FolderDown size={14} color="#AF52DE" />
+                          <div>
+                            <div>Tải full cả Bộ sưu tập</div>
+                            <div style={{ fontSize: '10px', color: '#8E8E93', fontWeight: 400 }}>{activeSession.collection} ({variants.length} ảnh)</div>
+                          </div>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Right Panel: Controls & Options */}
@@ -1148,39 +1493,153 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                   </div>
                 </div>
 
-                {/* Front / Back Toggle Buttons (iOS Segmented Control) */}
-                <div>
-                  <h4 style={{ fontSize: '11px', fontWeight: 700, color: '#8E8E93', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '10px' }}>
-                    GÓC NHÌN (VIEW)
-                  </h4>
-                  <div className="view-segmented-control">
-                    <button
-                      onClick={() => setViewTab('f')}
-                      className={`view-segmented-btn ${viewTab === 'f' ? 'view-segmented-btn-active' : ''}`}
-                    >
-                      MẶT TRƯỚC
-                    </button>
-                    <button
-                      onClick={() => setViewTab('b')}
-                      className={`view-segmented-btn ${viewTab === 'b' ? 'view-segmented-btn-active' : ''}`}
-                    >
-                      MẶT SAU
-                    </button>
-                  </div>
-                  
-                  {/* Warning if selected view missing */}
-                  {!activeModalVariant && (
-                    <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--warning)', fontSize: '12px' }}>
-                      <AlertCircle size={14} />
-                      <span>Không có ảnh cho mặt {viewTab === 'f' ? 'trước' : 'sau'} màu này.</span>
+                {/* Comments Section */}
+                <div style={{ borderTop: '1px solid #E5E5EA', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <MessageSquare size={14} color="#1D1D1F" />
+                      <h4 style={{ fontSize: '12px', fontWeight: 800, color: '#1D1D1F', letterSpacing: '0.8px', textTransform: 'uppercase', margin: 0 }}>
+                        BÌNH LUẬN ({comments.length})
+                      </h4>
                     </div>
-                  )}
-                </div>
+                    {user?.permission === 'Admin' && (
+                      <span style={{ fontSize: '10px', fontWeight: 700, backgroundColor: 'rgba(94, 92, 230, 0.1)', color: '#5E5CE6', padding: '2px 8px', borderRadius: '12px' }}>
+                        Admin Mode
+                      </span>
+                    )}
+                  </div>
 
-                {/* Design Summary Info */}
-                <div style={{ borderTop: '1px solid #E5E5EA', paddingTop: '14px', marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#8E8E93' }}>
-                  <p style={{ margin: 0 }}>Bộ sưu tập: <strong style={{ color: '#1D1D1F' }}>{activeSession.collection}</strong></p>
-                  <p style={{ margin: 0 }}>Tổng số biến thể: <strong style={{ color: '#1D1D1F' }}>{variants.filter(v => v.designId === detailDesign.id).length} ảnh</strong></p>
+                  {/* Comment Input Box */}
+                  <form onSubmit={handleAddComment} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        value={commentInput}
+                        onChange={e => setCommentInput(e.target.value)}
+                        placeholder="Thêm bình luận cho mẫu này..."
+                        style={{
+                          width: '100%',
+                          padding: '10px 42px 10px 14px',
+                          fontSize: '13px',
+                          borderRadius: '12px',
+                          border: '1px solid #D2D2D7',
+                          outline: 'none',
+                          color: '#1D1D1F',
+                          backgroundColor: '#FFFFFF',
+                          boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
+                        }}
+                      />
+                      <button
+                        type="submit"
+                        disabled={!commentInput.trim()}
+                        style={{
+                          position: 'absolute',
+                          right: '6px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          border: 'none',
+                          backgroundColor: commentInput.trim() ? '#1D1D1F' : '#E5E5EA',
+                          color: '#FFFFFF',
+                          padding: '6px 10px',
+                          borderRadius: '8px',
+                          cursor: commentInput.trim() ? 'pointer' : 'default',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        <Send size={12} />
+                      </button>
+                    </div>
+
+                    {/* Anonymous toggle check */}
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#8E8E93', cursor: 'pointer', userSelect: 'none' }}>
+                      <input
+                        type="checkbox"
+                        checked={isAnonymousComment}
+                        onChange={e => setIsAnonymousComment(e.target.checked)}
+                        style={{ accentColor: '#1D1D1F', cursor: 'pointer' }}
+                      />
+                      <Lock size={11} color={isAnonymousComment ? '#1D1D1F' : '#8E8E93'} />
+                      <span style={{ color: isAnonymousComment ? '#1D1D1F' : '#8E8E93', fontWeight: isAnonymousComment ? 700 : 500 }}>
+                        Đăng bình luận <strong>Ẩn danh 🔒</strong>
+                      </span>
+                    </label>
+                  </form>
+
+                  {/* Comments List (Dynamically expands to fill remaining height) */}
+                  <div style={{ flex: 1, minHeight: '120px', maxHeight: '260px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+                    {comments.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '16px 0', backgroundColor: '#F9F9FB', borderRadius: '12px', border: '1px dashed #E5E5EA' }}>
+                        <p style={{ fontSize: '12px', color: '#8E8E93', fontStyle: 'italic', margin: 0 }}>
+                          Chưa có góp ý nào. Hãy là người bóc tem sản phẩm này!
+                        </p>
+                      </div>
+                    ) : (
+                      comments.map(c => {
+                        const isOwner = c.userEmail === user?.email;
+                        const isAdminUser = user?.permission === 'Admin';
+                        const canDelete = isOwner || isAdminUser; // User thường CHỈ được xóa comment của chính họ, Admin xóa được tất cả
+                        
+                        return (
+                          <div
+                            key={c.id}
+                            style={{
+                              backgroundColor: '#F9F9FB',
+                              padding: '10px 12px',
+                              borderRadius: '12px',
+                              border: '1px solid #E5E5EA',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '4px',
+                              position: 'relative'
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                {c.isAnonymous ? (
+                                  isAdminUser ? (
+                                    /* ADMIN MODE: nhìn thấy được chính xác ai ẩn danh */
+                                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#5E5CE6' }}>
+                                      🔒 Ẩn danh <span style={{ fontWeight: 500, opacity: 0.8 }}>({c.userName} - {c.userRole || 'Voter'})</span>
+                                    </span>
+                                  ) : (
+                                    /* USER THƯỜNG MODE: chỉ thấy Nhân sự ẩn danh */
+                                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#8E8E93' }}>
+                                      🔒 Nhân sự ẩn danh
+                                    </span>
+                                  )
+                                ) : (
+                                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#1D1D1F' }}>
+                                    {c.userName} <span style={{ fontWeight: 500, color: '#8E8E93' }}>({c.userRole || 'Voter'})</span>
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '10px', color: '#8E8E93' }}>
+                                  {new Date(c.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                {canDelete && (
+                                  <button
+                                    onClick={() => handleDeleteComment(c.id)}
+                                    style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--danger)', padding: 0, opacity: 0.7 }}
+                                    title={isAdminUser && !isOwner ? "Xóa comment (Admin)" : "Xóa comment của bạn"}
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <p style={{ fontSize: '12px', color: '#1D1D1F', margin: 0, lineHeight: '1.4', wordBreak: 'break-word', fontWeight: 400 }}>
+                              {c.content}
+                            </p>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

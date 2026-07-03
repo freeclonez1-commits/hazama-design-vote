@@ -13,6 +13,7 @@ import { CreateSession } from './pages/CreateSession';
 import { ImportDesigns } from './pages/ImportDesigns';
 import { ReviewSession } from './pages/ReviewSession';
 import { LiveResults } from './pages/LiveResults';
+import { Loader2 } from 'lucide-react';
 import { Members } from './pages/Members';
 import { ImportLogs } from './pages/ImportLogs';
 import { Settings } from './pages/Settings';
@@ -27,7 +28,7 @@ const AppContent: React.FC = () => {
   const { sessions } = useDb();
   const { toast } = useToast();
 
-  const [hash, setHash] = useState(window.location.hash);
+  const [hash, setHash] = useState(window.location.hash || '#/');
   const [adminTab, setAdminTab] = useState('overview');
   const [selectedSessionId, setSelectedSessionId] = useState('');
 
@@ -44,12 +45,11 @@ const AppContent: React.FC = () => {
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--background)' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div
-            className="skeleton"
-            style={{ width: 48, height: 48, borderRadius: '50%', margin: '0 auto 16px auto', animation: 'pulse 1.5s infinite' }}
-          />
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500 }}>Đang xác thực thông tin...</p>
+        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
+          <Loader2 size={36} color="#1D1D1F" style={{ animation: 'spin 1s linear infinite' }} />
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 600, letterSpacing: '0.2px' }}>
+            Đang xác thực thông tin...
+          </p>
         </div>
       </div>
     );

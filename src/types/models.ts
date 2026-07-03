@@ -61,3 +61,14 @@ export interface ImportLog {
   reason: string;
   createdAt: string;
 }
+
+export interface DesignComment {
+  id: string;
+  designId: string;
+  userEmail: string;
+  userName: string;
+  userRole?: string;
+  isAnonymous: boolean;
+  content: string;
+  createdAt: string;
+}
