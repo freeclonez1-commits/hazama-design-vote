@@ -311,6 +311,7 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
   const imageContainerRef = useRef<HTMLDivElement | null>(null);
 
   const handleUpdateMagnifierPosition = (clientX: number, clientY: number, container: HTMLDivElement) => {
+    if (window.innerWidth <= 768) return;
     const glass = magnifierRef.current;
     if (!glass || !activeModalVariant) return;
 
@@ -318,8 +319,7 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
     const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
     const y = Math.max(0, Math.min(clientY - rect.top, rect.height));
 
-    const isMobile = window.innerWidth <= 768;
-    const glassRadius = isMobile ? 65 : 85;
+    const glassRadius = 85;
     const zoomFactor = 2.4;
 
     glass.style.display = 'block';
@@ -340,12 +340,7 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
     handleUpdateMagnifierPosition(e.clientX, e.clientY, e.currentTarget);
   };
 
-  const handleMagnifierTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length > 0) {
-      const touch = e.touches[0];
-      handleUpdateMagnifierPosition(touch.clientX, touch.clientY, e.currentTarget);
-    }
-  };
+
 
   const handleMagnifierMouseLeave = () => {
     handleHideMagnifier();
@@ -1202,14 +1197,6 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                 ref={imageContainerRef}
                 onMouseMove={handleMagnifierMouseMove}
                 onMouseLeave={handleMagnifierMouseLeave}
-                onTouchMove={handleMagnifierTouchMove}
-                onTouchStart={e => {
-                  if (e.touches.length > 0) {
-                    const touch = e.touches[0];
-                    handleUpdateMagnifierPosition(touch.clientX, touch.clientY, e.currentTarget);
-                  }
-                }}
-                onTouchEnd={handleHideMagnifier}
                 onClick={() => {
                   if (activeModalVariant) {
                     setFullscreenImage(activeModalVariant.imageUrl);
@@ -1226,8 +1213,7 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   position: 'relative',
-                  cursor: 'zoom-in',
-                  touchAction: 'none'
+                  cursor: 'zoom-in'
                 }}
               >
                 {activeModalVariant ? (
