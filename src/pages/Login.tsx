@@ -25,10 +25,12 @@ export const Login: React.FC = () => {
       try {
         const success = await login('');
         if (!success) {
-          toast('Đăng nhập bằng Google thất bại. Vui lòng kiểm tra lại.', 'error');
+          toast('Tên miền chưa được ủy quyền Firebase Auth hoặc Popup bị chặn. Chuyển sang đăng nhập Email...', 'warning');
+          setShowModal(true);
         }
       } catch (err) {
-        toast('Không thể kết nối đến Google Auth.', 'error');
+        toast('Chuyển sang đăng nhập Email...', 'info');
+        setShowModal(true);
       } finally {
         setLoading(false);
       }
