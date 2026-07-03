@@ -12,7 +12,10 @@ import {
   AlertTriangle,
   Plus,
   Loader,
-  RotateCcw
+  RotateCcw,
+  GripVertical,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 
 const supportedColors = [
@@ -150,6 +153,7 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ sessionId, setTab 
   const [localVariants, setLocalVariants] = useState<Variant[]>([]);
   const [deletedVariantIds, setDeletedVariantIds] = useState<string[]>([]);
   const [modalSaving, setModalSaving] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
@@ -279,6 +283,41 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ sessionId, setTab 
     if (!vid.startsWith('new_var_')) {
       setDeletedVariantIds(prev => [...prev, vid]);
     }
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDragEnter = (_e: React.DragEvent, index: number) => {
+    if (draggedIndex === null || draggedIndex === index) return;
+    
+    const list = [...localVariants];
+    const temp = list[draggedIndex];
+    list[draggedIndex] = list[index];
+    list[index] = temp;
+    
+    setDraggedIndex(index);
+    setLocalVariants(list);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
+
+  const handleMoveVariantOrder = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= localVariants.length) return;
+    const list = [...localVariants];
+    const temp = list[index];
+    list[index] = list[newIndex];
+    list[newIndex] = temp;
+    setLocalVariants(list);
   };
 
 
@@ -714,6 +753,7 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ sessionId, setTab 
                   <table className="table" style={{ width: '100%' }}>
                     <thead>
                       <tr>
+                        <th style={{ width: '60px', padding: '10px', textAlign: 'center' }}>Thứ tự</th>
                         <th style={{ width: '60px', padding: '10px' }}>Ảnh</th>
                         <th style={{ padding: '10px' }}>Màu sắc</th>
                         <th style={{ padding: '10px' }}>Loại ảnh</th>
@@ -721,9 +761,53 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ sessionId, setTab 
                       </tr>
                     </thead>
                     <tbody>
-                      {localVariants.map((v) => {
+                      {localVariants.map((v, index) => {
+                        const isDragging = draggedIndex === index;
                         return (
-                          <tr key={v.id}>
+                          <tr
+                            key={v.id}
+                            draggable={true}
+                            onDragStart={(e) => handleDragStart(e, index)}
+                            onDragOver={handleDragOver}
+                            onDragEnter={(e) => handleDragEnter(e, index)}
+                            onDragEnd={handleDragEnd}
+                            style={{
+                              opacity: isDragging ? 0.4 : 1,
+                              backgroundColor: isDragging ? 'rgba(0, 0, 0, 0.03)' : 'transparent',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            {/* Drag & Move Controls */}
+                            <td style={{ padding: '10px', textAlign: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                <div
+                                  style={{ color: '#8E8E93', cursor: 'grab', display: 'flex', alignItems: 'center' }}
+                                  title="Kéo thả để sắp xếp thứ tự trước/sau"
+                                >
+                                  <GripVertical size={16} />
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                  <button
+                                    type="button"
+                                    disabled={index === 0}
+                                    onClick={() => handleMoveVariantOrder(index, 'up')}
+                                    style={{ border: 'none', background: 'none', cursor: index === 0 ? 'default' : 'pointer', opacity: index === 0 ? 0.2 : 0.7, padding: 0 }}
+                                    title="Chuyển lên trước"
+                                  >
+                                    <ChevronUp size={12} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={index === localVariants.length - 1}
+                                    onClick={() => handleMoveVariantOrder(index, 'down')}
+                                    style={{ border: 'none', background: 'none', cursor: index === localVariants.length - 1 ? 'default' : 'pointer', opacity: index === localVariants.length - 1 ? 0.2 : 0.7, padding: 0 }}
+                                    title="Chuyển xuống sau"
+                                  >
+                                    <ChevronDown size={12} />
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
                             <td style={{ padding: '10px' }}>
                               <img
                                 src={v.imageUrl}
