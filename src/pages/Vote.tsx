@@ -340,6 +340,9 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
   };
 
   const handleMagnifierTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.cancelable) {
+      e.preventDefault();
+    }
     if (e.touches.length > 0) {
       const touch = e.touches[0];
       handleUpdateMagnifierPosition(touch.clientX, touch.clientY, e.currentTarget);
@@ -1220,7 +1223,8 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   position: 'relative',
-                  cursor: 'zoom-in'
+                  cursor: 'zoom-in',
+                  touchAction: 'none'
                 }}
               >
                 {activeModalVariant ? (
