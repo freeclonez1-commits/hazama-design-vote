@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { dbService } from '../services/db';
 import { useToast } from '../components/Toast';
+import { Pagination } from '../components/Pagination';
 import type { User } from '../types/models';
 import { UserPlus, ArrowRightLeft, Check, ShieldAlert } from 'lucide-react';
 
@@ -9,6 +10,8 @@ export const Members: React.FC = () => {
   const { user: currentUser, updateUserPermission, switchUser } = useAuth();
   const { toast } = useToast();
   const [usersList, setUsersList] = useState<User[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   // New member mock inputs
   const [newEmail, setNewEmail] = useState('');
@@ -196,7 +199,7 @@ export const Members: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {activeUsers.map(u => (
+                {activeUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize).map(u => (
                   <tr key={u.uid} style={{ backgroundColor: u.uid === currentUser?.uid ? 'rgba(0,0,0,0.02)' : 'transparent' }}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -272,6 +275,16 @@ export const Members: React.FC = () => {
                 ))}
               </tbody>
             </table>
+
+            {/* Pagination Component */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(activeUsers.length / pageSize)}
+              onPageChange={setCurrentPage}
+              totalItems={activeUsers.length}
+              pageSize={pageSize}
+              itemLabel="thành viên"
+            />
           </div>
         </div>
 

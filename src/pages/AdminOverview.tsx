@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDb } from '../context/DbContext';
 import { dbService } from '../services/db';
+import { Pagination } from '../components/Pagination';
 import {
   Users,
   Vote,
@@ -20,6 +21,9 @@ interface AdminOverviewProps {
 
 export const AdminOverview: React.FC<AdminOverviewProps> = ({ setTab, setSelectedSessionId }) => {
   const { sessions, refreshSessions } = useDb();
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalVotes: 0,
@@ -178,7 +182,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({ setTab, setSelecte
                 </tr>
               </thead>
               <tbody>
-                {sessions.map(s => {
+                {sessions.slice((currentPage - 1) * pageSize, currentPage * pageSize).map(s => {
                   const deadlineDate = new Date(s.deadline);
                   const isExpired = deadlineDate.getTime() < Date.now();
                   
@@ -273,6 +277,16 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({ setTab, setSelecte
                 })}
               </tbody>
             </table>
+
+            {/* Pagination Component */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(sessions.length / pageSize)}
+              onPageChange={setCurrentPage}
+              totalItems={sessions.length}
+              pageSize={pageSize}
+              itemLabel="phiên bình chọn"
+            />
           </div>
         )}
       </section>
