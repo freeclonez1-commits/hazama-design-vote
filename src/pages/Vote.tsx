@@ -160,14 +160,7 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
   const [commentInput, setCommentInput] = useState('');
   const [isAnonymousComment, setIsAnonymousComment] = useState(false);
 
-  // Magnifier State
-  const [magnifierState, setMagnifierState] = useState({
-    show: false,
-    x: 0,
-    y: 0,
-    width: 0,
-    height: 0
-  });
+
 
   useEffect(() => {
     if (detailDesign) {
@@ -310,33 +303,52 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
     toast(`Hoàn tất tải toàn bộ ${variants.length} ảnh của Bộ sưu tập!`, 'success');
   };
 
-  // Unified Mouse & Touch Hover Zoom Magnifier Handler
-  const handleMagnifierMove = (clientX: number, clientY: number, container: HTMLDivElement) => {
+  // Fullscreen Image Lightbox State
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+
+  // High performance DOM Ref Magnifier Handler (60fps - Zero React Re-render Lag)
+  const magnifierRef = useRef<HTMLDivElement | null>(null);
+  const imageContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const handleUpdateMagnifierPosition = (clientX: number, clientY: number, container: HTMLDivElement) => {
+    const glass = magnifierRef.current;
+    if (!glass || !activeModalVariant) return;
+
     const rect = container.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    setMagnifierState({
-      show: true,
-      x: Math.max(0, Math.min(x, rect.width)),
-      y: Math.max(0, Math.min(y, rect.height)),
-      width: rect.width,
-      height: rect.height
-    });
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    const y = Math.max(0, Math.min(clientY - rect.top, rect.height));
+
+    const isMobile = window.innerWidth <= 768;
+    const glassRadius = isMobile ? 65 : 85;
+    const zoomFactor = 2.4;
+
+    glass.style.display = 'block';
+    glass.style.left = `${x - glassRadius}px`;
+    glass.style.top = `${y - glassRadius}px`;
+    glass.style.backgroundImage = `url(${activeModalVariant.imageUrl})`;
+    glass.style.backgroundPosition = `${-x * zoomFactor + glassRadius}px ${-y * zoomFactor + glassRadius}px`;
+    glass.style.backgroundSize = `${rect.width * zoomFactor}px ${rect.height * zoomFactor}px`;
+  };
+
+  const handleHideMagnifier = () => {
+    if (magnifierRef.current) {
+      magnifierRef.current.style.display = 'none';
+    }
   };
 
   const handleMagnifierMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    handleMagnifierMove(e.clientX, e.clientY, e.currentTarget);
+    handleUpdateMagnifierPosition(e.clientX, e.clientY, e.currentTarget);
   };
 
   const handleMagnifierTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     if (e.touches.length > 0) {
       const touch = e.touches[0];
-      handleMagnifierMove(touch.clientX, touch.clientY, e.currentTarget);
+      handleUpdateMagnifierPosition(touch.clientX, touch.clientY, e.currentTarget);
     }
   };
 
   const handleMagnifierMouseLeave = () => {
-    setMagnifierState(prev => ({ ...prev, show: false }));
+    handleHideMagnifier();
   };
 
   // Countdown timer state
@@ -673,7 +685,7 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
   const handleOpenDetailModal = (design: Design) => {
     setDetailDesign(design);
     setViewTab('f');
-    setMagnifierState({ show: false, x: 0, y: 0, width: 0, height: 0 });
+    handleHideMagnifier();
   };
 
   const handleVoteSubmit = () => {
@@ -1187,17 +1199,22 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
               
               {/* Left Panel: Big Image Display with Smooth Rounded Corners */}
               <div
+                ref={imageContainerRef}
                 onMouseMove={handleMagnifierMouseMove}
                 onMouseLeave={handleMagnifierMouseLeave}
-                onMouseEnter={() => setMagnifierState(prev => ({ ...prev, show: true }))}
                 onTouchMove={handleMagnifierTouchMove}
                 onTouchStart={e => {
                   if (e.touches.length > 0) {
                     const touch = e.touches[0];
-                    handleMagnifierMove(touch.clientX, touch.clientY, e.currentTarget);
+                    handleUpdateMagnifierPosition(touch.clientX, touch.clientY, e.currentTarget);
                   }
                 }}
-                onTouchEnd={handleMagnifierMouseLeave}
+                onTouchEnd={handleHideMagnifier}
+                onClick={() => {
+                  if (activeModalVariant) {
+                    setFullscreenImage(activeModalVariant.imageUrl);
+                  }
+                }}
                 style={{
                   flex: 1,
                   aspectRatio: '3 / 4',
@@ -1221,29 +1238,24 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                       style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '16px' }}
                     />
                     
-                    {/* Unified Desktop & Mobile Hover Magnifier Glass */}
-                    {magnifierState.show && (
-                      <div
-                        className="magnifier-glass-circle"
-                        style={{
-                          position: 'absolute',
-                          pointerEvents: 'none',
-                          width: '150px',
-                          height: '150px',
-                          borderRadius: '50%',
-                          border: '2px solid #FFFFFF',
-                          boxShadow: '0 8px 30px rgba(0,0,0,0.25), inset 0 0 10px rgba(0,0,0,0.15)',
-                          left: `${magnifierState.x - 75}px`,
-                          top: `${magnifierState.y - 75}px`,
-                          backgroundImage: `url(${activeModalVariant.imageUrl})`,
-                          backgroundPosition: `${-magnifierState.x * 2.5 + 75}px ${-magnifierState.y * 2.5 + 75}px`,
-                          backgroundRepeat: 'no-repeat',
-                          backgroundSize: `${magnifierState.width * 2.5}px ${magnifierState.height * 2.5}px`,
-                          zIndex: 15,
-                          transition: 'left 0.03s linear, top 0.03s linear'
-                        }}
-                      />
-                    )}
+                    {/* Zero-Lag 60fps DOM Ref Magnifier Circle Glass */}
+                    <div
+                      ref={magnifierRef}
+                      className="magnifier-glass-circle"
+                      style={{
+                        display: 'none',
+                        position: 'absolute',
+                        pointerEvents: 'none',
+                        width: window.innerWidth <= 768 ? '130px' : '170px',
+                        height: window.innerWidth <= 768 ? '130px' : '170px',
+                        borderRadius: '50%',
+                        border: '2px solid #FFFFFF',
+                        boxShadow: '0 8px 30px rgba(0,0,0,0.25), inset 0 0 10px rgba(0,0,0,0.15)',
+                        backgroundColor: '#FFFFFF',
+                        backgroundRepeat: 'no-repeat',
+                        zIndex: 15
+                      }}
+                    />
                   </>
                 ) : (
                   <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
@@ -1255,7 +1267,9 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                 {detailVariants.length > 1 && (
                   <>
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleHideMagnifier();
                         const idx = detailVariants.findIndex(v => v.id === activeModalVariant?.id);
                         const prevIdx = (idx - 1 + detailVariants.length) % detailVariants.length;
                         const prevVar = detailVariants[prevIdx];
@@ -1280,7 +1294,7 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                         justifyContent: 'center',
                         cursor: 'pointer',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-                        zIndex: 12,
+                        zIndex: 25,
                         transition: 'all 0.2s ease'
                       }}
                       title="Xem ảnh trước"
@@ -1289,7 +1303,9 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                     </button>
 
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleHideMagnifier();
                         const idx = detailVariants.findIndex(v => v.id === activeModalVariant?.id);
                         const nextIdx = (idx + 1) % detailVariants.length;
                         const nextVar = detailVariants[nextIdx];
@@ -1314,7 +1330,7 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                         justifyContent: 'center',
                         cursor: 'pointer',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-                        zIndex: 12,
+                        zIndex: 25,
                         transition: 'all 0.2s ease'
                       }}
                       title="Xem ảnh tiếp theo"
@@ -1804,6 +1820,60 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Fullscreen Image Lightbox Preview Modal */}
+      {fullscreenImage && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            backgroundColor: 'rgba(0, 0, 0, 0.92)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={() => setFullscreenImage(null)}
+        >
+          <button
+            onClick={() => setFullscreenImage(null)}
+            style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              color: '#FFFFFF',
+              border: 'none',
+              borderRadius: '50%',
+              width: '44px',
+              height: '44px',
+              fontSize: '20px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10000
+            }}
+          >
+            ✕
+          </button>
+          <img
+            src={fullscreenImage}
+            alt="Fullscreen preview"
+            style={{
+              maxWidth: '92vw',
+              maxHeight: '92vh',
+              objectFit: 'contain',
+              borderRadius: '12px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+            }}
+            onClick={e => e.stopPropagation()}
+          />
         </div>
       )}
 
