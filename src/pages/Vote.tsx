@@ -356,8 +356,17 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
   // Countdown timer state
   const [timeLeft, setTimeLeft] = useState<{ d: number; h: number; m: number; s: number } | null>(null);
 
-  // 1. Resolve session ID and load details
-  const targetSessionId = sessionId || sessions.find(s => s.status === 'published')?.id || '';
+  // 1. Resolve session: support multi-published-session selector
+  const publishedSessions = sessions.filter(s => s.status === 'published');
+
+  // If a specific sessionId prop is provided, use it directly.
+  // Otherwise: if only 1 published session, auto-select it.
+  //            if ≥2 published sessions, user must pick one.
+  const [chosenSessionId, setChosenSessionId] = useState<string>('');
+
+  const targetSessionId = sessionId
+    || chosenSessionId
+    || (publishedSessions.length === 1 ? publishedSessions[0].id : '');
 
   useEffect(() => {
     if (targetSessionId) {
@@ -461,6 +470,266 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
               Đăng xuất
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Multi-session picker: show when ≥2 published sessions and no session chosen yet ---
+  if (!sessionId && !chosenSessionId && publishedSessions.length >= 2) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#F8F9FA',
+        backgroundImage: 'radial-gradient(at 10% 10%, rgba(0, 122, 255, 0.05) 0px, transparent 50%), radial-gradient(at 90% 90%, rgba(255, 149, 0, 0.05) 0px, transparent 50%)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '32px 20px 48px 20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif'
+      }}>
+        {/* Top Navbar */}
+        <header style={{
+          width: '100%',
+          maxWidth: '1040px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '48px',
+          padding: '12px 20px',
+          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderRadius: '16px',
+          border: '1px solid rgba(0, 0, 0, 0.06)',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)'
+        }}>
+          <img
+            src="https://bizweb.dktcdn.net/100/558/373/theme_temp/1024758/assets/logo-hazama-01-831cb57d-a357-419f-a4d9-e5d7a10f7f69-7f9fdab7-8bb7-494a-b91f-d4ba2604b1ce.png?1782204204270"
+            alt="Hazama Logo"
+            style={{ height: '32px', objectFit: 'contain' }}
+          />
+
+          {user && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#F2F2F7', padding: '4px 12px 4px 6px', borderRadius: '20px' }}>
+                <div style={{
+                  width: '26px',
+                  height: '26px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--accent)',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  fontSize: '12px'
+                }}>
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#1D1D1F' }}>{user.name}</span>
+                <span style={{ fontSize: '11px', color: '#86868B' }}>({user.role})</span>
+              </div>
+
+              {user.permission === 'Admin' && (
+                <button
+                  onClick={() => window.location.hash = '#/admin'}
+                  className="btn btn-outline"
+                  style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '10px', fontWeight: 600 }}
+                >
+                  Admin
+                </button>
+              )}
+
+              <button
+                onClick={logout}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#FF3B30',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: '4px 8px'
+                }}
+              >
+                Đăng xuất
+              </button>
+            </div>
+          )}
+        </header>
+
+        {/* Hero Title Section */}
+        <div style={{ textAlign: 'center', marginBottom: '40px', maxWidth: '600px' }} className="animate-fade-in">
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            backgroundColor: 'rgba(52, 199, 89, 0.1)',
+            color: '#28CD41',
+            borderRadius: '20px',
+            fontSize: '12px',
+            fontWeight: 700,
+            marginBottom: '16px'
+          }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#34C759', display: 'inline-block', boxShadow: '0 0 10px #34C759' }} />
+            {publishedSessions.length} phiên đang diễn ra
+          </div>
+          <h2 style={{ fontSize: '32px', fontWeight: 800, color: '#1D1D1F', letterSpacing: '-1px', margin: '0 0 12px 0', lineHeight: 1.2 }}>
+            Chọn phiên bình chọn
+          </h2>
+          <p style={{ fontSize: '15px', color: '#6E6E73', margin: 0, lineHeight: 1.5 }}>
+            Vui lòng chọn bộ sưu tập hoặc sự kiện bạn muốn tham gia bỏ phiếu đánh giá thiết kế.
+          </p>
+        </div>
+
+        {/* Sessions Grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: publishedSessions.length === 2 ? 'repeat(auto-fit, minmax(360px, 1fr))' : 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: '24px',
+          maxWidth: '960px',
+          width: '100%'
+        }}>
+          {publishedSessions.map(s => {
+            const deadline = new Date(s.deadline);
+            const now = new Date();
+            const msLeft = +deadline - +now;
+            const daysLeft = Math.max(0, Math.floor(msLeft / (1000 * 60 * 60 * 24)));
+            const hoursLeft = Math.max(0, Math.floor((msLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)));
+            const isUrgent = msLeft < 24 * 60 * 60 * 1000;
+            const formattedDeadline = deadline.toLocaleString('vi-VN', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+
+            return (
+              <div
+                key={s.id}
+                onClick={() => setChosenSessionId(s.id)}
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: '24px',
+                  padding: '32px 28px',
+                  border: '1px solid rgba(0, 0, 0, 0.06)',
+                  boxShadow: '0 8px 30px rgba(0, 0, 0, 0.04)',
+                  cursor: 'pointer',
+                  transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '24px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+                className="hover-card"
+                onMouseEnter={e => {
+                  const card = e.currentTarget;
+                  card.style.transform = 'translateY(-4px)';
+                  card.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.08)';
+                  card.style.borderColor = 'var(--accent)';
+                }}
+                onMouseLeave={e => {
+                  const card = e.currentTarget;
+                  card.style.transform = 'translateY(0)';
+                  card.style.boxShadow = '0 8px 30px rgba(0, 0, 0, 0.04)';
+                  card.style.borderColor = 'rgba(0, 0, 0, 0.06)';
+                }}
+              >
+                {/* Top badges bar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '5px 12px',
+                    borderRadius: '30px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    backgroundColor: '#EBF5FF',
+                    color: '#007AFF'
+                  }}>
+                    <span style={{ fontSize: '12px' }}>👕</span>
+                    {s.collection || 'BST Hazama'}
+                  </span>
+
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '5px 12px',
+                    borderRadius: '30px',
+                    backgroundColor: isUrgent ? '#FFF0F0' : '#F2F2F7',
+                    color: isUrgent ? '#FF3B30' : '#6E6E73'
+                  }}>
+                    {isUrgent ? `⚡ Còn ${hoursLeft}h` : `⏰ Hạn ${daysLeft} ngày`}
+                  </span>
+                </div>
+
+                {/* Main Session Content */}
+                <div>
+                  <h3 style={{
+                    fontSize: '20px',
+                    fontWeight: 800,
+                    color: '#1D1D1F',
+                    letterSpacing: '-0.5px',
+                    lineHeight: 1.35,
+                    margin: '0 0 10px 0'
+                  }}>
+                    {s.title}
+                  </h3>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', color: '#86868B', marginTop: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ color: '#1D1D1F', fontWeight: 600 }}>🗳️ Quy định:</span>
+                      <span>Tối đa <strong style={{ color: '#1D1D1F' }}>{s.maxVotesPerUser} vote</strong> / người</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ color: '#1D1D1F', fontWeight: 600 }}>📅 Hạn chót:</span>
+                      <span>{formattedDeadline}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer Action Button */}
+                <div style={{
+                  paddingTop: '16px',
+                  borderTop: '1px solid #F2F2F7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  color: 'var(--accent)',
+                  fontWeight: 700,
+                  fontSize: '14px'
+                }}>
+                  <span>Tham gia bình chọn</span>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '14px'
+                  }}>
+                    →
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer info */}
+        <div style={{ marginTop: '56px', fontSize: '12px', color: '#A1A1A6', textAlign: 'center' }}>
+          © {new Date().getFullYear()} Hazama Design Vote System. All rights reserved.
         </div>
       </div>
     );
@@ -798,6 +1067,18 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                 {user?.role}
               </p>
             </div>
+
+            {/* Back to session picker button (only when user came from multi-session picker) */}
+            {chosenSessionId && publishedSessions.length >= 2 && (
+              <button
+                onClick={() => setChosenSessionId('')}
+                className="btn btn-outline"
+                style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '8px', fontWeight: 600 }}
+                title="Xem các phiên bình chọn khác"
+              >
+                ← Phiên khác
+              </button>
+            )}
 
             {user?.permission === 'Admin' && (
               <button

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useDb } from '../context/DbContext';
 import { useToast } from '../components/Toast';
 import { getMockTshirtSvg, dbService } from '../services/db';
@@ -10,7 +10,8 @@ import {
   Trash2,
   CheckCircle,
   Plus,
-  AlertTriangle
+  AlertTriangle,
+  FolderPlus
 } from 'lucide-react';
 
 interface ImportDesignsProps {
@@ -44,9 +45,32 @@ const supportedColors = [
 ];
 
 
-// Lossless Raw Image Preserver - Keeps 100% original ICC color profile & zero distortion
+// Real image compressor: resize to max 1200px + quality 0.82 to stay within localStorage limits
 const compressImage = (base64Str: string): Promise<string> => {
-  return Promise.resolve(base64Str);
+  // SVG data URIs (mock thumbnails) don't need compression
+  if (base64Str.startsWith('data:image/svg')) return Promise.resolve(base64Str);
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1200;
+      let { width, height } = img;
+      if (width > MAX || height > MAX) {
+        const ratio = Math.min(MAX / width, MAX / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(base64Str); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => resolve(base64Str);
+    img.src = base64Str;
+  });
 };
 
 const detectColor = (text: string): string => {
@@ -247,27 +271,184 @@ const GroupHeaderCodeInput: React.FC<GroupHeaderCodeInputProps> = ({ groupCode, 
   );
 };
 
+interface VariantCardProps {
+  item: FileReviewItem;
+  groupCode: string;
+  groupKeys: string[];
+  isDuplicate: boolean;
+  onUpdateField: (id: string, field: keyof FileReviewItem, value: string) => void;
+  onDelete: (id: string) => void;
+  onMoveToGroup: (id: string, targetGroup: string) => void;
+}
+
+const VariantCard: React.FC<VariantCardProps> = React.memo(({ item, groupCode, groupKeys, isDuplicate, onUpdateField, onDelete, onMoveToGroup }) => {
+  // Pending move confirmation state
+  const [pendingGroup, setPendingGroup] = useState<string | null>(null);
+
+  const handleGroupSelectChange = (newGroup: string) => {
+    if (newGroup !== groupCode) {
+      setPendingGroup(newGroup);
+    }
+  };
+
+  const confirmMove = () => {
+    if (pendingGroup) {
+      onMoveToGroup(item.id, pendingGroup);
+      setPendingGroup(null);
+    }
+  };
+
+  const cancelMove = () => {
+    setPendingGroup(null);
+  };
+
+  return (
+    <div
+      draggable={!pendingGroup}
+      onDragStart={(e) => { e.dataTransfer.setData('text/plain', item.id); }}
+      style={{
+        display: 'flex',
+        gap: '12px',
+        padding: '12px',
+        borderRadius: '12px',
+        border: isDuplicate ? '1.5px solid var(--warning)' : pendingGroup ? '1.5px solid var(--accent)' : '1px solid var(--border)',
+        backgroundColor: isDuplicate ? 'rgba(255, 149, 0, 0.05)' : '#FAF9F6',
+        position: 'relative',
+        cursor: pendingGroup ? 'default' : 'grab',
+        transition: 'border-color 0.15s, background-color 0.15s'
+      }}
+    >
+      {/* Inline confirm overlay when pending move */}
+      {pendingGroup && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '12px',
+          backgroundColor: 'rgba(255,255,255,0.96)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '10px',
+          padding: '12px',
+          border: '1.5px solid var(--accent)',
+          boxShadow: '0 4px 20px rgba(90,200,250,0.15)'
+        }}>
+          <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center', lineHeight: '1.4' }}>
+            Chuyển ảnh này sang nhóm
+            <br />
+            <span style={{ color: 'var(--accent)', fontSize: '13px' }}>[{pendingGroup}]</span> ?
+          </p>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={confirmMove}
+              style={{
+                padding: '5px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: 'var(--accent)',
+                color: '#fff',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              ✓ Xác nhận
+            </button>
+            <button
+              onClick={cancelMove}
+              style={{
+                padding: '5px 14px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: '#fff',
+                color: 'var(--text-secondary)',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Hủy
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Thumbnail */}
+      <div style={{ width: '60px', height: '80px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.05)' }}>
+        <img src={item.dataUrl} alt="variant" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      </div>
+
+      {/* Fields */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'center' }}>
+        {groupKeys.length > 1 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <span style={{ fontSize: '9px', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase' }}>Thuộc nhóm</span>
+            <select
+              value={groupCode}
+              onChange={e => handleGroupSelectChange(e.target.value)}
+              style={{ borderRadius: '6px', border: '1px solid var(--accent)', padding: '2px 6px', fontSize: '11px', fontWeight: 700, outline: 'none', height: '26px', backgroundColor: '#FFFFFF', color: '#1D1D1F' }}
+            >
+              {groupKeys.map(g => <option key={g} value={g}>Mẫu: {g}</option>)}
+            </select>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text-secondary)' }}>Màu sắc</span>
+          <select
+            value={item.color}
+            onChange={e => onUpdateField(item.id, 'color', e.target.value)}
+            style={{ borderRadius: '6px', border: '1px solid #D2D2D7', padding: '4px 6px', fontSize: '12px', outline: 'none', height: '28px', backgroundColor: '#FFFFFF' }}
+          >
+            {supportedColors.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text-secondary)' }}>Góc nhìn</span>
+          <select
+            value={item.view}
+            onChange={e => onUpdateField(item.id, 'view', e.target.value)}
+            style={{ borderRadius: '6px', border: '1px solid #D2D2D7', padding: '4px 6px', fontSize: '12px', outline: 'none', height: '28px', backgroundColor: '#FFFFFF' }}
+          >
+            <option value="f">Mặt trước</option>
+            <option value="b">Mặt sau</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Delete */}
+      <button
+        type="button"
+        onClick={() => onDelete(item.id)}
+        style={{ position: 'absolute', top: '6px', right: '6px', border: 'none', background: 'none', cursor: 'pointer', color: '#8E8E93', padding: '2px', borderRadius: '4px', lineHeight: 1 }}
+        onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
+        onMouseLeave={e => (e.currentTarget.style.color = '#8E8E93')}
+        title="Xóa ảnh biến thể này"
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+});
+
 export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab }) => {
   const { activeSession, loadSessionDetails, importLogs } = useDb();
   const { toast } = useToast();
   
-  const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progressText, setProgressText] = useState('');
   const [filesToReview, setFilesToReview] = useState<FileReviewItem[]>([]);
+
+  // Drag-drop confirm: { itemId, fromGroup, toGroup }
+  const [dragConfirm, setDragConfirm] = useState<{ itemId: string; fromGroup: string; toGroup: string } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Drag and drop handlers
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  };
+
 
   // Helper to recursively read directory entries in HTML5
   const readEntry = (entry: any, path = ''): Promise<File[]> => {
@@ -308,7 +489,6 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setDragActive(false);
 
     if (e.dataTransfer.items) {
       const filesList: File[] = [];
@@ -330,14 +510,63 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      await processUploadedFiles(Array.from(e.target.files));
+  const targetGroupForUploadRef = useRef<string | null>(null);
+
+  const triggerFileInputForGroup = (groupCode?: string) => {
+    targetGroupForUploadRef.current = groupCode || null;
+    fileInputRef.current?.click();
+  };
+
+  // Drop files or drag items directly into a specific group card
+  const handleDropToSpecificGroup = async (e: React.DragEvent, targetGroupCode: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Check if dragging an existing variant item inside the review board
+    const draggedItemId = e.dataTransfer.getData('text/plain');
+    const draggedItem = filesToReview.find(i => i.id === draggedItemId);
+    const isInternalItemDrag = !!draggedItem;
+
+    if (isInternalItemDrag) {
+      const fromGroup = draggedItem.designCode.trim().toUpperCase() || 'HZ-NEW';
+      // Only show confirm if moving to a DIFFERENT group
+      if (fromGroup !== targetGroupCode) {
+        setDragConfirm({ itemId: draggedItemId, fromGroup, toGroup: targetGroupCode });
+      }
+      return;
+    }
+
+    // Drop new files/folders from desktop into this specific group
+    if (e.dataTransfer.items) {
+      const filesList: File[] = [];
+      const entries = Array.from(e.dataTransfer.items)
+        .map(item => item.webkitGetAsEntry())
+        .filter(entry => entry !== null);
+      
+      setUploading(true);
+      setProgressText(`Đang tải ảnh trực tiếp vào nhóm ${targetGroupCode}...`);
+
+      for (const entry of entries) {
+        const files = await readEntry(entry);
+        filesList.push(...files);
+      }
+
+      await processUploadedFiles(filesList, targetGroupCode);
+    } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await processUploadedFiles(Array.from(e.dataTransfer.files), targetGroupCode);
     }
   };
 
-  // Process files
-  const processUploadedFiles = async (files: File[]) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const targetGroup = targetGroupForUploadRef.current || undefined;
+      await processUploadedFiles(Array.from(e.target.files), targetGroup);
+      targetGroupForUploadRef.current = null;
+    }
+  };
+
+  // Process files with optional forcedDesignCode override
+  const processUploadedFiles = async (files: File[], forcedDesignCode?: string) => {
     setUploading(true);
     setProgressText('Đang lọc hình ảnh...');
 
@@ -362,7 +591,7 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
           id: `img_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
           name: file.name,
           dataUrl,
-          designCode: parsed.designCode,
+          designCode: forcedDesignCode ? forcedDesignCode.trim().toUpperCase() : parsed.designCode,
           color: parsed.color,
           view: parsed.view
         });
@@ -374,7 +603,7 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
       }
 
       setFilesToReview(prev => [...prev, ...parsedItems]);
-      toast(`Đã thêm ${parsedItems.length} hình ảnh vào danh sách kiểm duyệt.`, 'success');
+      toast(`Đã thêm ${parsedItems.length} hình ảnh vào nhóm [${forcedDesignCode || 'Mã tương ứng'}]`, 'success');
     } catch (err) {
       console.error(err);
       toast('Đã xảy ra lỗi khi đọc tệp tin.', 'error');
@@ -389,7 +618,7 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
   const handleConfirmImport = async () => {
     if (filesToReview.length === 0) return;
     
-    // Check if there are duplicate variants in any group
+    // Group items by designCode
     const groups: Record<string, FileReviewItem[]> = {};
     filesToReview.forEach(item => {
       const code = item.designCode.trim().toUpperCase() || 'HZ-NEW';
@@ -397,18 +626,19 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
       groups[code].push(item);
     });
 
-    let hasErrors = false;
-    Object.values(groups).forEach(items => {
-      const keys = items.map(i => `${i.color}_${i.view}`);
-      if (keys.length !== new Set(keys).size) {
-        hasErrors = true;
-      }
+    // Auto resolve duplicate color/view combination in same group
+    Object.entries(groups).forEach(([_code, items]) => {
+      const seenKeys = new Set<string>();
+      items.forEach(item => {
+        const key = `${item.color}_${item.view}`;
+        if (seenKeys.has(key)) {
+          if (item.view === 'f') {
+            item.view = 'b';
+          }
+        }
+        seenKeys.add(`${item.color}_${item.view}`);
+      });
     });
-
-    if (hasErrors) {
-      toast('Không thể import do tồn tại trùng lặp biến thể trong cùng một mã thiết kế. Vui lòng kiểm tra các cảnh báo màu vàng!', 'error');
-      return;
-    }
 
     setUploading(true);
     setProgressText('Đang tối ưu dung lượng ảnh & lưu vào cơ sở dữ liệu...');
@@ -424,8 +654,8 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
       let addedDesignsCount = 0;
       let addedVariantsCount = 0;
 
-      // 2. Process each design code group
-      const codes = Object.keys(groups);
+      // 2. Process each design code group with at least 1 image
+      const codes = Object.keys(groups).filter(c => groups[c].length > 0);
       for (let i = 0; i < codes.length; i++) {
         const code = codes[i];
         const groupItems = groups[code];
@@ -442,7 +672,7 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
             sessionId,
             code,
             name: `Thiết kế ${code}`,
-            coverImageUrl: '', // Will set from first front variant below
+            coverImageUrl: '',
             status: 'pending',
             sortOrder: existingDesigns.length + addedDesignsCount,
             createdAt: nowStr
@@ -454,10 +684,8 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
 
         // Process variants in group
         for (const item of groupItems) {
-          // Compress the base64 image
           const compressedDataUrl = await compressImage(item.dataUrl);
 
-          // Check if variant view already exists
           const existingVar = existingVariants.find(
             v => v.designId === design!.id && v.color === item.color && v.view === item.view
           );
@@ -477,7 +705,6 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
           newVariantsForDesign.push(variant);
           addedVariantsCount++;
 
-          // Log success
           logs.push({
             id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
             sessionId,
@@ -500,7 +727,6 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
         }
       }
 
-      // Save import logs
       if (logs.length > 0) {
         await dbService.saveImportLogs(logs);
       }
@@ -508,12 +734,15 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
       // Refresh DB Context
       await loadSessionDetails(sessionId);
 
-      toast(`Import hoàn tất! Đã thêm ${addedDesignsCount} thiết kế và ${addedVariantsCount} mặt ảnh mới.`, 'success');
+      toast(`Import thành công! Đã lưu ${addedDesignsCount} mẫu thiết kế và ${addedVariantsCount} hình ảnh vào phiên bình chọn.`, 'success');
+      
+      // Clear review state and redirect to session overview
       setFilesToReview([]);
+      setCustomEmptyGroups([]);
       setTab('overview');
     } catch (err) {
-      console.error(err);
-      toast('Đã xảy ra lỗi khi lưu vào cơ sở dữ liệu.', 'error');
+      console.error("Import error:", err);
+      toast('Đã xảy ra lỗi khi lưu dữ liệu. Vui lòng thử lại!', 'error');
     } finally {
       setUploading(false);
       setProgressText('');
@@ -545,25 +774,50 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
     toast('Đã tải bộ 7 hình ảnh mẫu thử nghiệm vào danh sách kiểm duyệt!', 'success');
   };
 
-  const handleUpdateReviewField = (id: string, field: keyof FileReviewItem, value: string) => {
+
+  const handleUpdateReviewField = useCallback((id: string, field: keyof FileReviewItem, value: string) => {
     setFilesToReview(prev =>
       prev.map(item => (item.id === id ? { ...item, [field]: value } : item))
     );
-  };
+  }, []);
 
-  const handleDeleteReviewItem = (id: string) => {
+  const handleDeleteReviewItem = useCallback((id: string) => {
     setFilesToReview(prev => prev.filter(item => item.id !== id));
-  };
+  }, []);
 
-  // Group files by designCode for cleaner visual card layouts
-  const groups: Record<string, FileReviewItem[]> = {};
-  filesToReview.forEach(item => {
-    const code = item.designCode.trim().toUpperCase() || 'HZ-NEW';
-    if (!groups[code]) {
-      groups[code] = [];
+  // Move item to another group (called after user confirms in VariantCard overlay)
+  const handleMoveToGroup = useCallback((id: string, targetGroup: string) => {
+    setFilesToReview(prev =>
+      prev.map(item => (item.id === id ? { ...item, designCode: targetGroup } : item))
+    );
+    toast(`Đã chuyển ảnh vào nhóm [${targetGroup}]!`, 'success');
+  }, [toast]);
+
+  // Support manually created empty groups
+  const [customEmptyGroups, setCustomEmptyGroups] = useState<string[]>([]);
+
+  // Group files by designCode — memoized so only recomputes when data changes
+  const groups = useMemo(() => {
+    const g: Record<string, FileReviewItem[]> = {};
+    customEmptyGroups.forEach(code => { g[code] = []; });
+    filesToReview.forEach(item => {
+      const code = item.designCode.trim().toUpperCase() || 'HZ-NEW';
+      if (!g[code]) g[code] = [];
+      g[code].push(item);
+    });
+    return g;
+  }, [filesToReview, customEmptyGroups]);
+
+  const handleCreateNewGroup = () => {
+    const nextNum = Object.keys(groups).length + 1;
+    const inputCode = prompt('Nhập Tên Mã Thiết Kế cho Nhóm Mới:', `MOCK ${nextNum}`);
+    if (inputCode === null) return;
+    const cleanCode = inputCode.trim().toUpperCase() || `MOCK ${nextNum}`;
+    if (!customEmptyGroups.includes(cleanCode) && !groups[cleanCode]) {
+      setCustomEmptyGroups(prev => [...prev, cleanCode]);
     }
-    groups[code].push(item);
-  });
+    toast(`Đã tạo nhóm thiết kế mới [${cleanCode}]! Hãy chọn hoặc kéo ảnh vào nhóm này.`, 'success');
+  };
 
   const handleMergeAllToSingleGroup = () => {
     if (filesToReview.length === 0) return;
@@ -574,37 +828,100 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
     toast(`Đã gộp tất cả ${filesToReview.length} ảnh thành 1 mẫu thiết kế [${cleanCode}]!`, 'success');
   };
 
+  const handleClearAll = () => {
+    setFilesToReview([]);
+    setCustomEmptyGroups([]);
+    targetGroupForUploadRef.current = null;
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   return (
     <div 
       className="animate-fade-in" 
       style={{ display: 'flex', flexDirection: 'column', gap: '32px', position: 'relative' }}
-      onDragEnter={handleDrag}
-      onDragOver={handleDrag}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
       onDrop={handleDrop}
     >
-      
-      {/* Global drop overlay indicator */}
-      {dragActive && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            backgroundColor: 'rgba(29, 29, 31, 0.4)',
-            backdropFilter: 'blur(8px)',
-            zIndex: 1000,
+
+      {/* Drag-drop confirm modal */}
+      {dragConfirm && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.35)',
+          backdropFilter: 'blur(6px)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '20px',
+            padding: '32px 36px',
+            maxWidth: '380px',
+            width: '90%',
+            boxShadow: '0 24px 60px rgba(0,0,0,0.18)',
+            textAlign: 'center',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            pointerEvents: 'none'
-          }}
-        >
-          <div style={{ backgroundColor: '#FFFFFF', padding: '40px 60px', borderRadius: '24px', textAlign: 'center', boxShadow: 'var(--shadow-lg)' }}>
-            <UploadCloud size={48} color="var(--accent)" className="animate-bounce" style={{ margin: '0 auto 16px auto' }} />
-            <h4 style={{ fontSize: '18px', fontWeight: 800 }}>Thả tệp tin hoặc thư mục ảnh tại đây</h4>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>Tự động thêm vào danh sách kiểm duyệt hiện tại</p>
+            flexDirection: 'column',
+            gap: '20px',
+            animation: 'var(--animate-fade-in)'
+          }}>
+            <div style={{ fontSize: '36px', lineHeight: 1 }}>🔄</div>
+            <div>
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                Xác nhận chuyển nhóm?
+              </h4>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                Chuyển ảnh từ nhóm{' '}
+                <strong style={{ color: '#FF6B35' }}>[{dragConfirm.fromGroup}]</strong>
+                {' '}sang nhóm{' '}
+                <strong style={{ color: 'var(--accent)' }}>[{dragConfirm.toGroup}]</strong>?
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                onClick={() => {
+                  setFilesToReview(prev =>
+                    prev.map(i => (i.id === dragConfirm.itemId ? { ...i, designCode: dragConfirm.toGroup } : i))
+                  );
+                  toast(`Đã chuyển ảnh sang nhóm [${dragConfirm.toGroup}]!`, 'success');
+                  setDragConfirm(null);
+                }}
+                style={{
+                  padding: '10px 24px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  backgroundColor: 'var(--accent)',
+                  color: '#fff',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(0,122,255,0.3)'
+                }}
+              >
+                ✓ Xác nhận chuyển
+              </button>
+              <button
+                onClick={() => setDragConfirm(null)}
+                style={{
+                  padding: '10px 24px',
+                  borderRadius: '10px',
+                  border: '1.5px solid var(--border)',
+                  backgroundColor: '#FFFFFF',
+                  color: 'var(--text-primary)',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Hủy
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -626,7 +943,7 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
       </div>
 
       {/* 2. UPLOADER OR REVIEW GRID */}
-      {filesToReview.length > 0 ? (
+      {(filesToReview.length > 0 || customEmptyGroups.length > 0) ? (
         /* --- HIGHLY PRODUCTIVE GROUPED REVIEW MODE --- */
         <div className="grid grid-cols-1 grid-cols-3-md" style={{ gap: '24px', alignItems: 'flex-start' }}>
           
@@ -642,6 +959,27 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={handleCreateNewGroup}
+                    className="btn"
+                    style={{
+                      fontSize: '12px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--accent)',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title="Tạo thêm 1 nhóm Mã thiết kế mới rỗng để xếp ảnh vào"
+                  >
+                    <FolderPlus size={14} />
+                    <span>Tạo nhóm mới</span>
+                  </button>
+
                   {Object.keys(groups).length > 1 && (
                     <button
                       onClick={handleMergeAllToSingleGroup}
@@ -670,7 +1008,7 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
                     Thêm ảnh
                   </button>
                   <button
-                    onClick={() => setFilesToReview([])}
+                    onClick={handleClearAll}
                     className="btn btn-outline"
                     style={{ fontSize: '12px', padding: '8px 12px', borderRadius: '8px', color: 'var(--danger)', borderColor: 'var(--danger)' }}
                   >
@@ -690,12 +1028,18 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
                 <div 
                   key={groupCode} 
                   className="card animate-fade-in" 
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => handleDropToSpecificGroup(e, groupCode)}
                   style={{ 
                     padding: '24px', 
                     borderLeft: hasDuplicates ? '5px solid var(--warning)' : '5px solid var(--accent)',
                     backgroundColor: '#FFFFFF',
                     borderRadius: '16px',
-                    boxShadow: '0 4px 15px rgba(0,0,0,0.01)'
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.01)',
+                    transition: 'all 0.2s ease'
                   }}
                 >
                   {/* Group Card Header */}
@@ -728,9 +1072,19 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
                       )}
                       <button
                         type="button"
+                        onClick={() => triggerFileInputForGroup(groupCode)}
+                        className="btn btn-outline"
+                        style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', color: 'var(--accent)', borderColor: 'var(--accent)' }}
+                      >
+                        <Plus size={13} />
+                        Thêm ảnh vào nhóm này
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => {
                           if (window.confirm(`Xóa toàn bộ nhóm thiết kế ${groupCode}?`)) {
                             setFilesToReview(prev => prev.filter(item => item.designCode.trim().toUpperCase() !== groupCode));
+                            setCustomEmptyGroups(prev => prev.filter(g => g !== groupCode));
                           }
                         }}
                         className="btn btn-outline"
@@ -742,85 +1096,53 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
                   </div>
 
                   {/* Group Body: Grid of variants */}
-                  <div className="grid grid-cols-1 grid-cols-2-sm grid-cols-3-md" style={{ gap: '16px' }}>
-                    {items.map(item => {
-                      const isDuplicate = items.filter(i => i.color === item.color && i.view === item.view).length > 1;
-
-                      return (
-                        <div 
-                          key={item.id}
-                          style={{
-                            display: 'flex',
-                            gap: '12px',
-                            padding: '12px',
-                            borderRadius: '12px',
-                            border: isDuplicate ? '1.5px solid var(--warning)' : '1px solid var(--border)',
-                            backgroundColor: isDuplicate ? 'rgba(255, 149, 0, 0.03)' : '#FAF9F6',
-                            position: 'relative'
-                          }}
-                        >
-                          {/* Variant Thumbnail */}
-                          <div style={{ width: '60px', height: '80px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.03)' }}>
-                            <img 
-                              src={item.dataUrl} 
-                              alt="variant" 
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                            />
-                          </div>
-
-                          {/* Variant Form Fields */}
-                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'center' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text-secondary)' }}>Màu sắc</span>
-                              <select
-                                value={item.color}
-                                onChange={e => handleUpdateReviewField(item.id, 'color', e.target.value)}
-                                style={{ borderRadius: '6px', border: '1px solid #D2D2D7', padding: '4px 6px', fontSize: '12px', outline: 'none', height: '28px', backgroundColor: '#FFFFFF' }}
-                              >
-                                {supportedColors.map(c => (
-                                  <option key={c.value} value={c.value}>{c.label}</option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text-secondary)' }}>Góc nhìn</span>
-                              <select
-                                value={item.view}
-                                onChange={e => handleUpdateReviewField(item.id, 'view', e.target.value as 'f' | 'b')}
-                                style={{ borderRadius: '6px', border: '1px solid #D2D2D7', padding: '4px 6px', fontSize: '12px', outline: 'none', height: '28px', backgroundColor: '#FFFFFF' }}
-                              >
-                                <option value="f">Mặt trước</option>
-                                <option value="b">Mặt sau</option>
-                              </select>
-                            </div>
-                          </div>
-
-                          {/* Delete item button */}
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteReviewItem(item.id)}
-                            style={{
-                              position: 'absolute',
-                              top: '6px',
-                              right: '6px',
-                              border: 'none',
-                              background: 'none',
-                              cursor: 'pointer',
-                              color: '#8E8E93'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.color = 'var(--danger)'}
-                            onMouseLeave={e => e.currentTarget.style.color = '#8E8E93'}
-                            title="Xóa ảnh mặt này"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
+                  {items.length === 0 ? (
+                    <div 
+                      onClick={() => triggerFileInputForGroup(groupCode)}
+                      style={{ 
+                        padding: '40px 20px', 
+                        textAlign: 'center', 
+                        backgroundColor: '#F9F9FB', 
+                        borderRadius: '14px', 
+                        border: '2px dashed #D2D2D7',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <UploadCloud size={32} color="var(--accent)" />
+                      <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                        Nhóm [{groupCode}] hiện đang rỗng
+                      </p>
+                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
+                        Kéo thả tệp/thư mục ảnh trực tiếp vào ô này, hoặc click chọn ảnh để nạp vào nhóm <strong>[{groupCode}]</strong>
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 grid-cols-2-sm grid-cols-3-md" style={{ gap: '16px' }}>
+                      {items.map(item => {
+                        const isDuplicate = items.filter(i => i.color === item.color && i.view === item.view).length > 1;
+                        return (
+                          <VariantCard
+                            key={item.id}
+                            item={item}
+                            groupCode={groupCode}
+                            groupKeys={Object.keys(groups)}
+                            isDuplicate={isDuplicate}
+                            onUpdateField={handleUpdateReviewField}
+                            onDelete={handleDeleteReviewItem}
+                            onMoveToGroup={handleMoveToGroup}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+              </div>
+            );
             })}
 
             <input
@@ -870,7 +1192,7 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
                   <span>Xác nhận Import ({filesToReview.length} ảnh)</span>
                 </button>
                 <button
-                  onClick={() => setFilesToReview([])}
+                  onClick={handleClearAll}
                   className="btn btn-outline"
                   style={{ width: '100%', fontSize: '13px', padding: '10px', borderRadius: '10px' }}
                 >
@@ -887,10 +1209,33 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
           
           {/* Left Column: Drag & Drop Zone */}
           <div style={{ gridColumn: 'span 2' }} className="card">
-            <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '4px' }}>Tải hình ảnh lên hệ thiết kế</h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '24px' }}>
-              Kéo thả thư mục chứa hình ảnh sản phẩm hoặc kéo thả nhiều tệp tin ảnh cùng lúc trực tiếp vào đây.
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '4px' }}>Tải hình ảnh lên hệ thiết kế</h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                  Kéo thả thư mục chứa hình ảnh sản phẩm hoặc tạo nhóm thiết kế trước để phân loại.
+                </p>
+              </div>
+
+              <button
+                onClick={handleCreateNewGroup}
+                className="btn"
+                style={{
+                  fontSize: '13px',
+                  padding: '9px 16px',
+                  borderRadius: '10px',
+                  backgroundColor: 'var(--accent)',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <FolderPlus size={16} />
+                <span>+ Tạo nhóm thủ công</span>
+              </button>
+            </div>
 
             {/* Drag Area */}
             <div
