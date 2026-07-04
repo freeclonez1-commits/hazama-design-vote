@@ -1287,9 +1287,14 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
 
             {/* Voted Designs Display */}
             <div style={{ marginTop: '16px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '24px', color: 'var(--text-secondary)' }}>
-                Thiết kế đã bình chọn
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+                <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', color: '#1D1D1F' }}>
+                  Thiết kế đã bình chọn
+                </span>
+                <span style={{ backgroundColor: 'rgba(52, 199, 89, 0.12)', color: '#28CD41', fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '12px' }}>
+                  ✓ Đã chọn ({votedDesigns.length})
+                </span>
+              </div>
               <div className="grid grid-cols-1 grid-cols-2-sm grid-cols-3-md grid-cols-4-lg" style={{ gap: '24px' }}>
                 {votedDesigns.map(d => {
                   const dVars = variants.filter(v => v.designId === d.id);
@@ -1305,6 +1310,39 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                 })}
               </div>
             </div>
+
+            {/* Unvoted Designs Display */}
+            {(() => {
+              const unvotedDesigns = designs.filter(d => !votedDesigns.some(v => v.id === d.id));
+              if (unvotedDesigns.length === 0) return null;
+
+              return (
+                <div style={{ marginTop: '44px', borderTop: '1px solid var(--border)', paddingTop: '32px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                      Thiết kế bạn không chọn
+                    </span>
+                    <span style={{ backgroundColor: '#F2F2F7', color: '#86868B', fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '12px' }}>
+                      {unvotedDesigns.length} thiết kế
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 grid-cols-2-sm grid-cols-3-md grid-cols-4-lg" style={{ gap: '24px', opacity: 0.85 }}>
+                    {unvotedDesigns.map(d => {
+                      const dVars = variants.filter(v => v.designId === d.id);
+                      return (
+                        <DesignCard
+                          key={d.id}
+                          design={d}
+                          variants={dVars}
+                          selectable={false}
+                          onViewDetails={() => handleOpenDetailModal(d)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* LIVE LEADERBOARD RESULTS */}
             <div style={{ marginTop: '48px', borderTop: '1px solid var(--border)', paddingTop: '40px' }}>
