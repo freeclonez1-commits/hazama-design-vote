@@ -359,10 +359,8 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
   // 1. Resolve session: support multi-published-session selector
   const publishedSessions = sessions.filter(s => s.status === 'published');
 
-  // If a specific sessionId prop is provided, use it directly.
-  // Otherwise: if only 1 published session, auto-select it.
-  //            if ≥2 published sessions, user must pick one.
   const [chosenSessionId, setChosenSessionId] = useState<string>('');
+  const [showSessionPicker, setShowSessionPicker] = useState<boolean>(false);
 
   const targetSessionId = sessionId
     || chosenSessionId
@@ -373,6 +371,8 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
       loadSessionDetails(targetSessionId);
     }
   }, [targetSessionId]);
+
+
 
   // Lắng nghe thay đổi localStorage từ tab Admin (ví dụ: Admin reset votes)
   // Giúp Vote page phản ứng ngay thay vì chờ 3s polling
@@ -475,8 +475,8 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
     );
   }
 
-  // --- Multi-session picker: show when ≥2 published sessions and no session chosen yet ---
-  if (!sessionId && !chosenSessionId && publishedSessions.length >= 2) {
+  // --- Multi-session picker: show when ≥2 published sessions and (user clicked change session OR no session chosen yet) ---
+  if (!sessionId && publishedSessions.length >= 2 && (showSessionPicker || !chosenSessionId)) {
     return (
       <div style={{
         minHeight: '100vh',
@@ -595,7 +595,7 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
         {/* Sessions Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: publishedSessions.length === 2 ? 'repeat(auto-fit, minmax(360px, 1fr))' : 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: publishedSessions.length === 2 ? 'repeat(auto-fit, minmax(320px, 1fr))' : 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: '24px',
           maxWidth: '960px',
           width: '100%'
@@ -618,7 +618,10 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
             return (
               <div
                 key={s.id}
-                onClick={() => setChosenSessionId(s.id)}
+                onClick={() => {
+                  setChosenSessionId(s.id);
+                  setShowSessionPicker(false);
+                }}
                 style={{
                   backgroundColor: '#FFFFFF',
                   borderRadius: '24px',
@@ -1048,23 +1051,21 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
       >
         <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '12px' }}>
           
-          {/* Logo & Info */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-            <img 
-              src="https://bizweb.dktcdn.net/100/558/373/theme_temp/1024758/assets/logo-hazama-01-831cb57d-a357-419f-a4d9-e5d7a10f7f69-7f9fdab7-8bb7-494a-b91f-d4ba2604b1ce.png?1782204204270" 
-              alt="Hazama Logo" 
-              style={{ 
-                height: '38px', 
-                maxHeight: '38px',
-                width: 'auto', 
-                objectFit: 'contain',
-                display: 'block'
-              }} 
-            />
-            <div className="hide-mobile" style={{ height: '14px', borderLeft: '1px solid var(--border)', marginLeft: '8px', marginRight: '8px' }} />
-            <span className="hide-mobile" style={{ display: 'inline-block', backgroundColor: 'rgba(0, 0, 0, 0.05)', color: 'var(--text-secondary)', fontWeight: 600, borderRadius: '9999px', padding: '3px 10px', fontSize: '10px', whiteSpace: 'nowrap' }}>
-              Bộ sưu tập: {activeSession.collection}
-            </span>
+          {/* Logo & Brand */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <a href="#/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+              <img 
+                src="https://bizweb.dktcdn.net/100/558/373/theme_temp/1024758/assets/logo-hazama-01-831cb57d-a357-419f-a4d9-e5d7a10f7f69-7f9fdab7-8bb7-494a-b91f-d4ba2604b1ce.png?1782204204270" 
+                alt="Hazama Logo" 
+                style={{ 
+                  height: '32px', 
+                  maxHeight: '32px', 
+                  width: 'auto', 
+                  objectFit: 'contain',
+                  display: 'block' 
+                }} 
+              />
+            </a>
           </div>
 
           {/* User Profile Info & Control */}
@@ -1075,18 +1076,6 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                 {user?.role}
               </p>
             </div>
-
-            {/* Back to session picker button (only when user came from multi-session picker) */}
-            {chosenSessionId && publishedSessions.length >= 2 && (
-              <button
-                onClick={() => setChosenSessionId('')}
-                className="btn btn-outline"
-                style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '8px', fontWeight: 600 }}
-                title="Xem các phiên bình chọn khác"
-              >
-                ← Phiên khác
-              </button>
-            )}
 
             {user?.permission === 'Admin' && (
               <button
@@ -1129,6 +1118,89 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
           }}
         >
           <div style={{ flex: 1, minWidth: '240px' }}>
+            {/* Standard Breadcrumb Navigation positioned directly above H1 title */}
+            <nav aria-label="Breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              <a 
+                href="#/" 
+                onClick={(e) => {
+                  if (publishedSessions.length >= 2) {
+                    e.preventDefault();
+                    setShowSessionPicker(true);
+                    setChosenSessionId('');
+                  }
+                }}
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary)',
+                  textDecoration: 'none',
+                  transition: 'color 0.15s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+              >
+                Trang chủ
+              </a>
+
+              <ChevronRight size={13} color="#8E8E93" style={{ flexShrink: 0 }} />
+
+              {publishedSessions.length >= 2 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSessionPicker(true);
+                    setChosenSessionId('');
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '2px 6px',
+                    borderRadius: '6px',
+                    color: 'var(--accent)',
+                    fontWeight: 700,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'background-color 0.15s ease'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0, 122, 255, 0.08)'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                  title="Xem tất cả phiên bình chọn"
+                >
+                  <span>Phiên bình chọn</span>
+                  <span style={{
+                    backgroundColor: 'rgba(0, 122, 255, 0.12)',
+                    color: '#007AFF',
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    fontSize: '10px',
+                    fontWeight: 800
+                  }}>
+                    {publishedSessions.length}
+                  </span>
+                </button>
+              ) : (
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  Phiên bình chọn
+                </span>
+              )}
+
+              <ChevronRight size={13} color="#8E8E93" style={{ flexShrink: 0 }} />
+
+              <span style={{
+                fontSize: '12px',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                padding: '2px 8px',
+                borderRadius: '6px'
+              }}>
+                {activeSession.collection || 'BST Hazama'}
+              </span>
+            </nav>
+
             <h1 style={{ fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.6px', lineHeight: '1.2', margin: 0 }}>{activeSession.title}</h1>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px', fontWeight: 400 }}>
               Mỗi nhân sự được chọn tối đa <strong>{activeSession.maxVotesPerUser} mẫu thiết kế</strong> yêu thích nhất.
