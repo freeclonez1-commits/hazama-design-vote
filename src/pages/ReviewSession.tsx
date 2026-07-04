@@ -55,25 +55,62 @@ const compressImage = (base64Str: string): Promise<string> => {
   return Promise.resolve(base64Str);
 };
 
-const parseFileInfo = (filename: string): { designCode: string; color: string; view: 'f' | 'b' } => {
+const parseFileInfo = (filename: string, relativePath = ''): { designCode: string; color: string; view: 'f' | 'b' } => {
   const cleanName = filename.toLowerCase().replace(/\.[^/.]+$/, "");
   const parts = cleanName.split(/[-_\s]+/);
-  
+
+  const ignoreKeywords = [
+    'den', 'đen', 'black',
+    'trang', 'trắng', 'white',
+    'xam', 'xám', 'grey', 'gray',
+    'navy', 'kem', 'be', 'beige',
+    'do', 'đỏ', 'red',
+    'xanh', 'blue', 'green', 'xanhla', 'xanh-la',
+    'nau', 'nâu', 'brown',
+    'hong', 'hồng', 'pink',
+    'tim', 'tím', 'purple',
+    'vang', 'vàng', 'yellow',
+    'cam', 'orange',
+    'truoc', 'trước', 'sau', 'front', 'font', 'back', 'f', 'b', 't', 's'
+  ];
+
   let designCode = '';
-  let color = 'white';
-  let view: 'f' | 'b' = 'f';
-  
-  if (parts.length > 0) {
-    designCode = parts[0].toUpperCase();
+
+  // 1. ƯU TIÊN 1: Lấy Tên Thư Mục Cha (Folder Name) trực tiếp nếu có relativePath
+  if (relativePath && (relativePath.includes('/') || relativePath.includes('\\'))) {
+    const pathParts = relativePath.split(/[/\\]+/).filter(Boolean);
+    if (pathParts.length >= 2) {
+      const folderName = pathParts[pathParts.length - 2].trim();
+      if (folderName && !ignoreKeywords.includes(folderName.toLowerCase())) {
+        designCode = folderName.toUpperCase();
+      }
+    }
   }
-  
+
+  // 2. ƯU TIÊN 2: Trích xuất từ tên File nếu chưa có tên Thư mục cha
+  if (!designCode) {
+    const codeParts: string[] = [];
+    for (const part of parts) {
+      if (ignoreKeywords.includes(part.toLowerCase())) {
+        if (codeParts.length > 0) break;
+      } else {
+        codeParts.push(part);
+      }
+    }
+    if (codeParts.length > 0) {
+      designCode = codeParts.join(' ').toUpperCase();
+    }
+  }
+
+  let color = 'white';
   for (const part of parts) {
     if (colorMap[part]) {
       color = colorMap[part];
       break;
     }
   }
-  
+
+  let view: 'f' | 'b' = 'f';
   for (const part of parts) {
     if (part === 'f' || part === 'front' || part === 'truoc' || part === 't') {
       view = 'f';
@@ -83,11 +120,11 @@ const parseFileInfo = (filename: string): { designCode: string; color: string; v
       break;
     }
   }
-  
-  return { 
-    designCode: designCode || 'HZ-NEW', 
-    color, 
-    view 
+
+  return {
+    designCode: designCode || 'HZ-NEW',
+    color,
+    view
   };
 };
 

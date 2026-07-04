@@ -137,8 +137,7 @@ const detectView = (text: string): 'f' | 'b' => {
 const parseFileInfo = (filename: string, relativePath = ''): { designCode: string; color: string; view: 'f' | 'b' } => {
   const cleanName = filename.toLowerCase().replace(/\.[^/.]+$/, ""); // Remove extension
   const combinedText = `${relativePath.toLowerCase()} / ${cleanName}`;
-  const parts = cleanName.split(/[-_\s]+/);
-  
+
   const knownColors = [
     ...supportedColors.map(c => c.value),
     'den', 'đen', 'black',
@@ -153,38 +152,53 @@ const parseFileInfo = (filename: string, relativePath = ''): { designCode: strin
     'vang', 'vàng', 'yellow',
     'cam', 'orange'
   ];
-  
+
   const ignoreKeywords = ['truoc', 'trước', 'sau', 'front', 'font', 'back', 'f', 'b', 't', 's', ...knownColors];
-  
+
   let designCode = '';
-  
-  // 1. Detect Design Code (first meaningful non-color/non-view keyword)
-  if (parts.length > 0 && !ignoreKeywords.includes(parts[0].toLowerCase())) {
-    // If first part is "mock" and second part is number (e.g. "mock 1"), combine them as "MOCK 1"
-    if (parts[0].toLowerCase() === 'mock' && parts.length > 1 && /^\d+$/.test(parts[1])) {
-      designCode = `${parts[0].toUpperCase()} ${parts[1]}`;
-    } else {
-      designCode = parts[0].toUpperCase();
-    }
-  } else {
-    // Try to extract design code from parent folders in relative path
+
+  // 1. ƯU TIÊN 1: Lấy Tên Thư Mục Cha (Folder Name) trực tiếp nếu kéo thả/tải thư mục
+  if (relativePath && (relativePath.includes('/') || relativePath.includes('\\'))) {
     const pathParts = relativePath.split(/[/\\]+/).filter(Boolean);
-    for (let i = pathParts.length - 2; i >= 0; i--) {
-      const p = pathParts[i].toLowerCase();
-      if (!ignoreKeywords.includes(p)) {
-        designCode = pathParts[i].toUpperCase();
-        break;
+    if (pathParts.length >= 2) {
+      // Thư mục trực tiếp chứa file ảnh (ví dụ: "MOCK 1", "MOCK 2", "DESIGN A")
+      const folderName = pathParts[pathParts.length - 2].trim();
+      if (folderName && !ignoreKeywords.includes(folderName.toLowerCase())) {
+        designCode = folderName.toUpperCase();
       }
     }
   }
-  
+
+  // 2. ƯU TIÊN 2: Trích xuất từ tên File nếu chưa có tên Thư mục cha
+  if (!designCode) {
+    const parts = cleanName.split(/[-_\s]+/);
+    const codeParts: string[] = [];
+
+    for (const part of parts) {
+      if (ignoreKeywords.includes(part.toLowerCase())) {
+        if (codeParts.length > 0) break; // Gặp tên màu/góc nhìn thì dừng gom mã
+      } else {
+        codeParts.push(part);
+      }
+    }
+
+    if (codeParts.length > 0) {
+      designCode = codeParts.join(' ').toUpperCase();
+    }
+  }
+
+  // Fallback nếu không xác định được mã
+  if (!designCode) {
+    designCode = 'HZ-NEW';
+  }
+
   const color = detectColor(combinedText);
   const view = detectView(combinedText);
-  
-  return { 
-    designCode: designCode || 'MOCK', 
-    color, 
-    view 
+
+  return {
+    designCode,
+    color,
+    view
   };
 };
 
@@ -342,7 +356,8 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
           reader.readAsDataURL(file);
         });
 
-        const parsed = parseFileInfo(file.name, (file as any).relativePath || '');
+        const relPath = (file as any).relativePath || file.webkitRelativePath || '';
+        const parsed = parseFileInfo(file.name, relPath);
         parsedItems.push({
           id: `img_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
           name: file.name,
