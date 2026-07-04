@@ -362,6 +362,9 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
   const [chosenSessionId, setChosenSessionId] = useState<string>('');
   const [showSessionPicker, setShowSessionPicker] = useState<boolean>(false);
 
+  // Track which sessions the logged-in user has already voted in
+  const [userVotedSessionIds, setUserVotedSessionIds] = useState<Set<string>>(new Set());
+
   const targetSessionId = sessionId
     || chosenSessionId
     || (publishedSessions.length === 1 ? publishedSessions[0].id : '');
@@ -371,6 +374,25 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
       loadSessionDetails(targetSessionId);
     }
   }, [targetSessionId]);
+
+  useEffect(() => {
+    if (user && publishedSessions.length > 0) {
+      Promise.all(
+        publishedSessions.map(async (s) => {
+          try {
+            const sVotes = await dbService.listVotes(s.id);
+            const userVote = sVotes.find(v => v.userEmail.toLowerCase() === user.email.toLowerCase());
+            return userVote ? s.id : null;
+          } catch (e) {
+            return null;
+          }
+        })
+      ).then(results => {
+        const votedIds = new Set(results.filter((id): id is string => id !== null));
+        setUserVotedSessionIds(votedIds);
+      });
+    }
+  }, [user, publishedSessions, votes]);
 
 
 
@@ -653,20 +675,40 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
               >
                 {/* Top badges bar */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <span style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '5px 12px',
-                    borderRadius: '30px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    backgroundColor: '#EBF5FF',
-                    color: '#007AFF'
-                  }}>
-                    <span style={{ fontSize: '12px' }}>👕</span>
-                    {s.collection || 'BST Hazama'}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '5px 12px',
+                      borderRadius: '30px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      backgroundColor: '#EBF5FF',
+                      color: '#007AFF'
+                    }}>
+                      <span style={{ fontSize: '12px' }}>👕</span>
+                      {s.collection || 'BST Hazama'}
+                    </span>
+
+                    {userVotedSessionIds.has(s.id) && (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '5px 12px',
+                        borderRadius: '30px',
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        backgroundColor: '#ECFDF5',
+                        color: '#059669',
+                        border: '1px solid rgba(16, 185, 129, 0.25)',
+                        boxShadow: '0 2px 6px rgba(16, 185, 129, 0.12)'
+                      }}>
+                        ✓ Đã vote
+                      </span>
+                    )}
+                  </div>
 
                   <span style={{
                     display: 'inline-flex',
@@ -715,16 +757,16 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  color: 'var(--accent)',
+                  color: userVotedSessionIds.has(s.id) ? '#059669' : 'var(--accent)',
                   fontWeight: 700,
                   fontSize: '14px'
                 }}>
-                  <span>Tham gia bình chọn</span>
+                  <span>{userVotedSessionIds.has(s.id) ? 'Xem lại bình chọn' : 'Tham gia bình chọn'}</span>
                   <div style={{
                     width: '32px',
                     height: '32px',
                     borderRadius: '50%',
-                    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+                    backgroundColor: userVotedSessionIds.has(s.id) ? 'rgba(5, 150, 105, 0.1)' : 'rgba(0, 122, 255, 0.1)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -738,8 +780,8 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
           })}
         </div>
 
-        {/* Footer info */}
-        <div style={{ marginTop: '56px', fontSize: '12px', color: '#A1A1A6', textAlign: 'center' }}>
+        {/* Footer info (pushed to bottom of screen via marginTop: auto) */}
+        <div style={{ marginTop: 'auto', paddingTop: '40px', fontSize: '12px', color: '#A1A1A6', textAlign: 'center' }}>
           © {new Date().getFullYear()} Hazama Design Vote System. All rights reserved.
         </div>
       </div>
