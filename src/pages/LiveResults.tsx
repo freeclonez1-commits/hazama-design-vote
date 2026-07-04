@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDb } from '../context/DbContext';
 import { useToast } from '../components/Toast';
-import type { User } from '../types/models';
+import type { User, DesignComment, Design } from '../types/models';
 import { dbService } from '../services/db';
 
 import {
@@ -13,7 +13,10 @@ import {
   Filter,
   Trophy,
   Users,
-  RotateCcw
+  RotateCcw,
+  X,
+  Eye,
+  MessageSquare
 } from 'lucide-react';
 
 interface LiveResultsProps {
@@ -24,7 +27,7 @@ interface LiveResultsProps {
 type RoleFilterType = 'All' | 'CEO' | 'Designer' | 'Ads' | 'HR' | 'Kế toán';
 
 export const LiveResults: React.FC<LiveResultsProps> = ({ sessionId, setTab }) => {
-  const { activeSession, designs, votes, loadSessionDetails, updateSessionStatus, updateDesign } = useDb();
+  const { activeSession, designs, variants, votes, loadSessionDetails, updateSessionStatus, updateDesign } = useDb();
   const { toast } = useToast();
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -32,6 +35,34 @@ export const LiveResults: React.FC<LiveResultsProps> = ({ sessionId, setTab }) =
   const [totalVotesCount, setTotalVotesCount] = useState(0);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [activeFeedTab, setActiveFeedTab] = useState<'progress' | 'votes'>('progress');
+
+  // Product Detail Modal State
+  const [selectedDesignForModal, setSelectedDesignForModal] = useState<Design | null>(null);
+  const [modalSelectedColor, setModalSelectedColor] = useState<string>('');
+  const [modalViewTab, setModalViewTab] = useState<'f' | 'b'>('f');
+  const [modalComments, setModalComments] = useState<DesignComment[]>([]);
+  const [modalLoadingComments, setModalLoadingComments] = useState<boolean>(false);
+
+  // When selectedDesignForModal changes, initialize color and load comments
+  useEffect(() => {
+    if (selectedDesignForModal) {
+      const designVars = variants.filter(v => v.designId === selectedDesignForModal.id);
+      const colors = Array.from(new Set(designVars.map(v => v.color)));
+      if (colors.length > 0) {
+        setModalSelectedColor(colors[0]);
+      } else {
+        setModalSelectedColor('');
+      }
+      setModalViewTab('f');
+
+      // Fetch comments for this design
+      setModalLoadingComments(true);
+      dbService.listComments(selectedDesignForModal.id)
+        .then(setModalComments)
+        .catch(console.error)
+        .finally(() => setModalLoadingComments(false));
+    }
+  }, [selectedDesignForModal, variants]);
 
   useEffect(() => {
     dbService.listUsers().then(setAllUsers);
@@ -341,8 +372,30 @@ export const LiveResults: React.FC<LiveResultsProps> = ({ sessionId, setTab }) =
                     {index + 1}
                   </div>
 
-                  {/* Thumbnail */}
-                  <div style={{ width: 44, height: 44, backgroundColor: '#F2F2F7', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                  {/* Thumbnail (Clickable to view detail modal) */}
+                  <div
+                    onClick={() => setSelectedDesignForModal(r.design)}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      backgroundColor: '#F2F2F7',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      border: '1px solid var(--border)',
+                      cursor: 'pointer',
+                      transition: 'transform 0.15s, border-color 0.15s',
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.borderColor = 'var(--accent)';
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.borderColor = 'var(--border)';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                    title="Bấm để xem chi tiết mẫu sản phẩm"
+                  >
                     {r.design.coverImageUrl && (
                       <img src={r.design.coverImageUrl} alt={r.design.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     )}
@@ -351,8 +404,21 @@ export const LiveResults: React.FC<LiveResultsProps> = ({ sessionId, setTab }) =
                   {/* Code and Progress bar */}
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>
-                      <span style={{ color: 'var(--text-primary)' }}>
-                        {r.design.code} - {r.design.name}
+                      <span
+                        onClick={() => setSelectedDesignForModal(r.design)}
+                        style={{
+                          color: 'var(--text-primary)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'var(--text-primary)'}
+                        title="Bấm để xem chi tiết mẫu sản phẩm"
+                      >
+                        <strong>{r.design.code}</strong> - {r.design.name}
+                        <Eye size={13} color="var(--accent)" />
                       </span>
                       <span style={{ color: 'var(--accent)' }}>
                         {r.voteCount} vote ({globalPercentage}%)
@@ -418,7 +484,13 @@ export const LiveResults: React.FC<LiveResultsProps> = ({ sessionId, setTab }) =
             <tbody>
               {processedResults.map(r => (
                 <tr key={r.design.id}>
-                  <td style={{ fontWeight: 700 }}>{r.design.code}</td>
+                  <td
+                    onClick={() => setSelectedDesignForModal(r.design)}
+                    style={{ fontWeight: 700, cursor: 'pointer', color: 'var(--accent)' }}
+                    title="Bấm để xem chi tiết mẫu sản phẩm"
+                  >
+                    {r.design.code} 👁️
+                  </td>
                   <td style={{ fontWeight: 800, color: 'var(--accent)' }}>{r.voteCount}</td>
                   <td>{r.breakdown.ceo}</td>
                   <td>{r.breakdown.designer}</td>
@@ -683,6 +755,265 @@ export const LiveResults: React.FC<LiveResultsProps> = ({ sessionId, setTab }) =
           </div>
         </div>
       )}
+
+      {/* PRODUCT DETAIL PREVIEW MODAL */}
+      {selectedDesignForModal && (() => {
+        const designVars = variants.filter(v => v.designId === selectedDesignForModal.id);
+        const colorOptions = Array.from(new Set(designVars.map(v => v.color)));
+        const activeModalVariant = designVars.find(v => v.color === modalSelectedColor && v.view === modalViewTab) || designVars[0];
+        
+        // Find stats for this design
+        const designStat = processedResults.find(r => r.design.id === selectedDesignForModal.id);
+        const voteCount = designStat ? designStat.voteCount : 0;
+        const globalPercentage = votes.length > 0 ? Math.round((voteCount / votes.length) * 100) : 0;
+
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px'
+            }}
+            onClick={() => setSelectedDesignForModal(null)}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: '24px',
+                maxWidth: '920px',
+                width: '100%',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+                boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative'
+              }}
+              className="animate-scale-up"
+            >
+              {/* Modal Header */}
+              <div style={{
+                padding: '20px 28px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                position: 'sticky',
+                top: 0,
+                backgroundColor: '#FFFFFF',
+                zIndex: 10,
+                borderTopLeftRadius: '24px',
+                borderTopRightRadius: '24px'
+              }}>
+                <div>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Chi tiết sản phẩm thiết kế • Mã {selectedDesignForModal.code}
+                  </span>
+                  <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', margin: '2px 0 0 0' }}>
+                    {selectedDesignForModal.name}
+                  </h3>
+                </div>
+
+                <button
+                  onClick={() => setSelectedDesignForModal(null)}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    border: '1px solid var(--border)',
+                    backgroundColor: '#F5F5F7',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: '#8E8E93',
+                    transition: 'all 0.15s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#E5E5EA'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = '#F5F5F7'}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Modal Content Grid */}
+              <div style={{ padding: '24px 28px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '28px' }}>
+                {/* Left Column: Image Preview & Views */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
+                  {/* Image Container */}
+                  <div style={{
+                    width: '100%',
+                    height: '360px',
+                    borderRadius: '16px',
+                    backgroundColor: '#FAF9F6',
+                    border: '1px solid var(--border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                    position: 'relative'
+                  }}>
+                    {activeModalVariant ? (
+                      <img
+                        src={activeModalVariant.imageUrl}
+                        alt="Preview"
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <div style={{ color: '#8E8E93', fontSize: '13px' }}>Chưa có ảnh biến thể</div>
+                    )}
+                  </div>
+
+                  {/* View Switcher: Front / Back */}
+                  <div style={{ display: 'flex', gap: '8px', backgroundColor: '#F2F2F7', padding: '4px', borderRadius: '12px' }}>
+                    <button
+                      onClick={() => setModalViewTab('f')}
+                      style={{
+                        padding: '6px 20px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        backgroundColor: modalViewTab === 'f' ? '#FFFFFF' : 'transparent',
+                        color: modalViewTab === 'f' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        fontSize: '12px',
+                        fontWeight: modalViewTab === 'f' ? 700 : 500,
+                        cursor: 'pointer',
+                        boxShadow: modalViewTab === 'f' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none'
+                      }}
+                    >
+                      Mặt trước (Front)
+                    </button>
+                    <button
+                      onClick={() => setModalViewTab('b')}
+                      style={{
+                        padding: '6px 20px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        backgroundColor: modalViewTab === 'b' ? '#FFFFFF' : 'transparent',
+                        color: modalViewTab === 'b' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        fontSize: '12px',
+                        fontWeight: modalViewTab === 'b' ? 700 : 500,
+                        cursor: 'pointer',
+                        boxShadow: modalViewTab === 'b' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none'
+                      }}
+                    >
+                      Mặt sau (Back)
+                    </button>
+                  </div>
+
+                  {/* Color selector pills */}
+                  {colorOptions.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                        Màu sắc biến thể ({colorOptions.length})
+                      </span>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        {colorOptions.map(c => (
+                          <button
+                            key={c}
+                            onClick={() => setModalSelectedColor(c)}
+                            style={{
+                              padding: '5px 14px',
+                              borderRadius: '20px',
+                              border: modalSelectedColor === c ? '2px solid var(--accent)' : '1px solid var(--border)',
+                              backgroundColor: modalSelectedColor === c ? '#EBF5FF' : '#FFFFFF',
+                              color: modalSelectedColor === c ? 'var(--accent)' : 'var(--text-primary)',
+                              fontSize: '12px',
+                              fontWeight: modalSelectedColor === c ? 700 : 500,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column: Vote Breakdown Stats & Comments */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* Vote summary card */}
+                  <div style={{
+                    backgroundColor: '#FAF9F6',
+                    borderRadius: '16px',
+                    padding: '16px 20px',
+                    border: '1px solid var(--border)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>Thống kê phiếu bầu</span>
+                      <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--accent)' }}>
+                        {voteCount} phiếu ({globalPercentage}%)
+                      </span>
+                    </div>
+
+                    {/* Role breakdown pills */}
+                    {designStat && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '12px' }}>
+                        <div style={{ backgroundColor: '#FFFFFF', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                          <div style={{ color: '#FF9500', fontWeight: 700 }}>CEO</div>
+                          <div style={{ fontWeight: 800 }}>{designStat.breakdown.ceo}</div>
+                        </div>
+                        <div style={{ backgroundColor: '#FFFFFF', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                          <div style={{ color: '#007AFF', fontWeight: 700 }}>Designer</div>
+                          <div style={{ fontWeight: 800 }}>{designStat.breakdown.designer}</div>
+                        </div>
+                        <div style={{ backgroundColor: '#FFFFFF', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                          <div style={{ color: '#34C759', fontWeight: 700 }}>Ads</div>
+                          <div style={{ fontWeight: 800 }}>{designStat.breakdown.ads}</div>
+                        </div>
+                        <div style={{ backgroundColor: '#FFFFFF', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                          <div style={{ color: '#FF3B30', fontWeight: 700 }}>HR</div>
+                          <div style={{ fontWeight: 800 }}>{designStat.breakdown.hr}</div>
+                        </div>
+                        <div style={{ backgroundColor: '#FFFFFF', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                          <div style={{ color: '#AF52DE', fontWeight: 700 }}>Kế toán</div>
+                          <div style={{ fontWeight: 800 }}>{designStat.breakdown.accounting}</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Team Feedback / Comments List */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 700 }}>
+                      <MessageSquare size={16} color="var(--accent)" />
+                      <span>Góp ý & Nhận xét ({modalComments.length})</span>
+                    </div>
+
+                    {modalLoadingComments ? (
+                      <div style={{ fontSize: '13px', color: '#8E8E93' }}>Đang tải bình luận...</div>
+                    ) : modalComments.length === 0 ? (
+                      <div style={{ fontSize: '13px', color: '#8E8E93', fontStyle: 'italic' }}>
+                        Chưa có ý kiến đóng góp nào cho thiết kế này.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '220px', overflowY: 'auto' }}>
+                        {modalComments.map(c => (
+                          <div key={c.id} style={{ backgroundColor: '#F9F9FB', padding: '10px 14px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.04)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#86868B', marginBottom: '4px' }}>
+                              <strong>{c.isAnonymous ? 'Thành viên ẩn danh' : c.userName} ({c.userRole})</strong>
+                              <span>{new Date(c.createdAt).toLocaleDateString('vi-VN')}</span>
+                            </div>
+                            <p style={{ margin: 0, fontSize: '13px', color: '#1D1D1F', lineHeight: '1.4' }}>{c.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
