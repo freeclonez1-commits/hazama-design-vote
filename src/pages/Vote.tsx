@@ -495,9 +495,11 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '48px',
-          padding: '12px 20px',
-          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          flexWrap: 'wrap',
+          gap: '10px',
+          marginBottom: '36px',
+          padding: '10px 16px',
+          backgroundColor: 'rgba(255, 255, 255, 0.85)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
           borderRadius: '16px',
@@ -507,15 +509,15 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
           <img
             src="https://bizweb.dktcdn.net/100/558/373/theme_temp/1024758/assets/logo-hazama-01-831cb57d-a357-419f-a4d9-e5d7a10f7f69-7f9fdab7-8bb7-494a-b91f-d4ba2604b1ce.png?1782204204270"
             alt="Hazama Logo"
-            style={{ height: '32px', objectFit: 'contain' }}
+            style={{ height: '26px', maxHeight: '26px', objectFit: 'contain', display: 'block' }}
           />
 
           {user && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#F2F2F7', padding: '4px 12px 4px 6px', borderRadius: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#F2F2F7', padding: '4px 10px 4px 6px', borderRadius: '20px' }}>
                 <div style={{
-                  width: '26px',
-                  height: '26px',
+                  width: '24px',
+                  height: '24px',
                   borderRadius: '50%',
                   backgroundColor: 'var(--accent)',
                   color: '#FFFFFF',
@@ -523,19 +525,24 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontWeight: 700,
-                  fontSize: '12px'
+                  fontSize: '11px',
+                  flexShrink: 0
                 }}>
                   {user.name.charAt(0).toUpperCase()}
                 </div>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#1D1D1F' }}>{user.name}</span>
-                <span style={{ fontSize: '11px', color: '#86868B' }}>({user.role})</span>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#1D1D1F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '110px' }}>
+                  {user.name}
+                </span>
+                <span className="hide-mobile" style={{ fontSize: '11px', color: '#86868B', whiteSpace: 'nowrap' }}>
+                  ({user.role})
+                </span>
               </div>
 
               {user.permission === 'Admin' && (
                 <button
                   onClick={() => window.location.hash = '#/admin'}
                   className="btn btn-outline"
-                  style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '10px', fontWeight: 600 }}
+                  style={{ padding: '3px 8px', fontSize: '11px', borderRadius: '8px', fontWeight: 600, whiteSpace: 'nowrap' }}
                 >
                   Admin
                 </button>
@@ -547,10 +554,11 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                   background: 'none',
                   border: 'none',
                   color: '#FF3B30',
-                  fontSize: '12px',
+                  fontSize: '11px',
                   fontWeight: 600,
                   cursor: 'pointer',
-                  padding: '4px 8px'
+                  padding: '3px 6px',
+                  whiteSpace: 'nowrap'
                 }}
               >
                 Đăng xuất
