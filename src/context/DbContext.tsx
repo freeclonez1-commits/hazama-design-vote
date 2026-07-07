@@ -41,12 +41,35 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const refreshSessions = async () => {
     try {
       const data = await dbService.listSessions();
+      
+      // Auto-expire published sessions whose deadline has passed
+      const now = Date.now();
+      let hasUpdates = false;
+      const updatedData = await Promise.all(data.map(async (s) => {
+        if (s.status === 'published' && new Date(s.deadline).getTime() <= now) {
+          const updated = { ...s, status: 'closed' as const, updatedAt: new Date().toISOString() };
+          await dbService.saveSession(updated);
+          hasUpdates = true;
+          return updated;
+        }
+        return s;
+      }));
+
       // Sort sessions: active/published first, then drafts, then closed/archived.
-      const sorted = [...data].sort((a, b) => {
+      const sorted = [...updatedData].sort((a, b) => {
         const order: Record<string, number> = { published: 0, draft: 1, review: 2, closed: 3, approved: 4, archived: 5 };
         return (order[a.status] ?? 99) - (order[b.status] ?? 99);
       });
+      
       setSessions(sorted);
+
+      // If the current activeSession was updated, sync its state too
+      if (hasUpdates && activeSession) {
+        const currentActiveUpdated = updatedData.find(item => item.id === activeSession.id);
+        if (currentActiveUpdated && currentActiveUpdated.status !== activeSession.status) {
+          setActiveSession(currentActiveUpdated);
+        }
+      }
     } catch (e) {
       console.error(e);
     }

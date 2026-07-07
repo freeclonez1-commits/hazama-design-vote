@@ -357,7 +357,10 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
   const [timeLeft, setTimeLeft] = useState<{ d: number; h: number; m: number; s: number } | null>(null);
 
   // 1. Resolve session: support multi-published-session selector
-  const publishedSessions = sessions.filter(s => s.status === 'published');
+  // Hide expired sessions from the picker and automatically treat them as closed/ended.
+  const publishedSessions = sessions.filter(
+    s => s.status === 'published' && new Date(s.deadline).getTime() > Date.now()
+  );
 
   const [chosenSessionId, setChosenSessionId] = useState<string>('');
   const [showSessionPicker, setShowSessionPicker] = useState<boolean>(false);
