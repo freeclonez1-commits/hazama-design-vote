@@ -100,15 +100,6 @@ const detectColor = (text: string): string => {
     return 'grey';
   }
   
-  // Check White
-  if (
-    cleanText.includes('trắng') || 
-    cleanText.includes('trang') || 
-    cleanText.includes('white')
-  ) {
-    return 'white';
-  }
-  
   // Fallback search map for other colors
   const fallbackMap: Record<string, string> = {
     'kem': 'beige', 'beige': 'beige', 'be': 'beige',
@@ -126,6 +117,15 @@ const detectColor = (text: string): string => {
     if (cleanText.includes(key)) {
       return val;
     }
+  }
+
+  // Check White (check last to prevent overriding compound colors like white-yellow, trang-vang)
+  if (
+    cleanText.includes('trắng') || 
+    cleanText.includes('trang') || 
+    cleanText.includes('white')
+  ) {
+    return 'white';
   }
   
   return 'white'; // default
