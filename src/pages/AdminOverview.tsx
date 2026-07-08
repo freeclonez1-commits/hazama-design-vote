@@ -242,7 +242,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({ setTab, setSelecte
                           )}
 
                           {/* Import designs button */}
-                          {(s.status === 'draft' || s.status === 'review') && (
+                          {(s.status === 'draft' || s.status === 'review' || (s.status === 'published' && !isExpired)) && (
                             <button
                               onClick={() => handleImportDesigns(s.id)}
                               className="btn btn-outline"

@@ -467,7 +467,7 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ sessionId, setTab 
             </button>
 
             {/* Import shortcut */}
-            {(activeSession.status === 'draft' || activeSession.status === 'review') && (
+            {(activeSession.status === 'draft' || activeSession.status === 'review' || (activeSession.status === 'published' && new Date(activeSession.deadline).getTime() > Date.now())) && (
               <button
                 onClick={() => setTab('sessions-import')}
                 className="btn btn-secondary"
