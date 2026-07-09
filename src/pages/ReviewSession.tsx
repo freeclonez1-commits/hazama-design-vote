@@ -50,9 +50,32 @@ const colorMap: Record<string, string> = {
   'cam': 'orange', 'orange': 'orange'
 };
 
-// Lossless Raw Image Preserver - Keeps 100% original ICC color profile & zero distortion
+// Real image compressor: resize to max 1200px + quality 0.82 to avoid Firestore/localStorage size limits
 const compressImage = (base64Str: string): Promise<string> => {
-  return Promise.resolve(base64Str);
+  // SVG data URIs (mock thumbnails) don't need compression
+  if (base64Str.startsWith('data:image/svg')) return Promise.resolve(base64Str);
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1200;
+      let { width, height } = img;
+      if (width > MAX || height > MAX) {
+        const ratio = Math.min(MAX / width, MAX / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(base64Str); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => resolve(base64Str);
+    img.src = base64Str;
+  });
 };
 
 const parseFileInfo = (filename: string, relativePath = ''): { designCode: string; color: string; view: 'f' | 'b' } => {

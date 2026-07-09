@@ -569,6 +569,24 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
 
   // Process files with optional forcedDesignCode override
   const processUploadedFiles = async (files: File[], forcedDesignCode?: string) => {
+    // 1. Kiểm tra xem có thông tin đường dẫn thư mục thực tế không
+    const hasPathContext = files.some(f =>
+      ((f as any).relativePath || '').includes('/') ||
+      (f.webkitRelativePath || '').includes('/')
+    );
+
+    let finalDesignCode = forcedDesignCode;
+
+    if (!finalDesignCode && !hasPathContext) {
+      // Hỏi người dùng nhập mã thiết kế nếu không có context thư mục
+      const code = window.prompt(
+        '📂 Nhập MÃ THIẾT KẾ cho toàn bộ ảnh đang tải lên:\n(Ví dụ: MOCK 6, HZ-01, DESIGN A...)\n\n⚠️ Mẹo: Kéo thả thư mục hoặc dùng "Chọn Thư Mục Cha" để tự động nhận diện.',
+        ''
+      );
+      if (code === null) return; // User canceled
+      finalDesignCode = code.trim().toUpperCase() || 'HZ-NEW';
+    }
+
     setUploading(true);
     setProgressText('Đang lọc hình ảnh...');
 
@@ -588,12 +606,21 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
         });
 
         const relPath = (file as any).relativePath || file.webkitRelativePath || '';
+        
+        // DEBUG: Log để xem thực tế relativePath là gì
+        console.log('[DEBUG IMPORT]', {
+          fileName: file.name,
+          customRelativePath: (file as any).relativePath,
+          webkitRelativePath: file.webkitRelativePath,
+          finalRelPath: relPath,
+        });
+        
         const parsed = parseFileInfo(file.name, relPath);
         parsedItems.push({
           id: `img_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
           name: file.name,
           dataUrl,
-          designCode: forcedDesignCode ? forcedDesignCode.trim().toUpperCase() : parsed.designCode,
+          designCode: finalDesignCode ? finalDesignCode.trim().toUpperCase() : parsed.designCode,
           color: parsed.color,
           view: parsed.view
         });
@@ -605,7 +632,7 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
       }
 
       setFilesToReview(prev => [...prev, ...parsedItems]);
-      toast(`Đã thêm ${parsedItems.length} hình ảnh vào nhóm [${forcedDesignCode || 'Mã tương ứng'}]`, 'success');
+      toast(`Đã thêm ${parsedItems.length} hình ảnh vào nhóm [${finalDesignCode || 'Mã tương ứng'}]`, 'success');
     } catch (err) {
       console.error(err);
       toast('Đã xảy ra lỗi khi đọc tệp tin.', 'error');
@@ -1251,7 +1278,7 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
 
             {/* Drag Area */}
             <div
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {}}
               style={{
                 border: `2px dashed var(--border)`,
                 borderRadius: '16px',
@@ -1268,16 +1295,24 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
               }}
             >
               <UploadCloud size={44} color="var(--text-secondary)" />
-              <div>
-                <p style={{ fontWeight: 600, fontSize: '14.5px', marginBottom: '8px' }}>
-                  Kéo thả thư mục ảnh (Folder) vào đây hoặc chọn tập tin
+              <div style={{ maxWidth: '540px' }}>
+                <p style={{ fontWeight: 700, fontSize: '15px', marginBottom: '6px' }}>
+                  🖱️ Kéo thả thư mục ảnh vào đây
                 </p>
-                <p style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                  Hỗ trợ PNG, JPG, JPEG, WEBP. Hệ thống hỗ trợ đọc đệ quy thư mục kéo thả.
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  Hỗ trợ PNG, JPG, JPEG, WEBP — đọc đệ quy thư mục khi kéo thả.
                 </p>
-                
+
+                {/* Instruction box */}
+                <div style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '10px', padding: '10px 14px', marginBottom: '16px', textAlign: 'left', fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.7' }}>
+                  <strong style={{ color: 'var(--accent)' }}>💡 Cách import nhiều mẫu cùng lúc:</strong><br />
+                  Kéo thả các thư mục thiết kế (MOCK 6, MOCK 7...) vào vùng này.<br />
+                  Hoặc dùng nút <strong>"Chọn Thư Mục Cha"</strong> → chọn thư mục CHA chứa tất cả các thư mục MOCK.<br />
+                  <span style={{ color: '#ef4444', fontWeight: 600 }}>⚠️ Không chọn từng thư mục MOCK riêng lẻ</span> — browser sẽ mất tên thư mục.
+                </div>
+
                 {/* Click selectors */}
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', pointerEvents: 'auto' }}>
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', pointerEvents: 'auto', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     className="btn btn-outline"
@@ -1286,19 +1321,21 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
                       fileInputRef.current?.click();
                     }}
                     style={{ padding: '8px 16px', fontSize: '12.5px', borderRadius: '8px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    title="Chọn nhiều file ảnh riêng lẻ (không nhận biết thư mục)"
                   >
-                    <span>📁 Chọn Tệp Ảnh</span>
+                    <span>📄 Chọn File Ảnh</span>
                   </button>
                   <button
                     type="button"
-                    className="btn btn-outline"
+                    className="btn"
                     onClick={(e) => {
                       e.stopPropagation();
                       folderInputRef.current?.click();
                     }}
-                    style={{ padding: '8px 16px', fontSize: '12.5px', borderRadius: '8px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    style={{ padding: '8px 16px', fontSize: '12.5px', borderRadius: '8px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--accent)', color: '#fff', border: 'none' }}
+                    title="Chọn thư mục CHA chứa tất cả các thư mục MOCK. Hệ thống sẽ tự phân nhóm theo tên thư mục con."
                   >
-                    <span>📂 Chọn Cả Thư Mục</span>
+                    <span>📂 Chọn Thư Mục Cha</span>
                   </button>
                 </div>
               </div>
