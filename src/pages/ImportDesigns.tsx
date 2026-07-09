@@ -447,6 +447,7 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
   const [dragConfirm, setDragConfirm] = useState<{ itemId: string; fromGroup: string; toGroup: string } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
 
 
@@ -611,6 +612,7 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
       setUploading(false);
       setProgressText('');
       if (fileInputRef.current) fileInputRef.current.value = '';
+      if (folderInputRef.current) folderInputRef.current.value = '';
     }
   };
 
@@ -833,6 +835,7 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
     setCustomEmptyGroups([]);
     targetGroupForUploadRef.current = null;
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (folderInputRef.current) folderInputRef.current.value = '';
   };
 
   return (
@@ -1153,6 +1156,14 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
               onChange={handleFileChange}
               style={{ display: 'none' }}
             />
+            <input
+              ref={folderInputRef}
+              type="file"
+              multiple
+              {...{ webkitdirectory: "", directory: "" }}
+              onChange={handleFileChange}
+              style={{ display: 'none' }}
+            />
           </div>
 
           {/* Right Import Actions Card */}
@@ -1257,18 +1268,52 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
             >
               <UploadCloud size={44} color="var(--text-secondary)" />
               <div>
-                <p style={{ fontWeight: 600, fontSize: '14px' }}>
-                  Kéo thả thư mục ảnh (Folder) hoặc nhiều file ảnh vào đây, hoặc click để chọn
+                <p style={{ fontWeight: 600, fontSize: '14.5px', marginBottom: '8px' }}>
+                  Kéo thả thư mục ảnh (Folder) vào đây hoặc chọn tập tin
                 </p>
-                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                  Hỗ trợ PNG, JPG, JPEG, WEBP. Hệ thống hỗ trợ đọc đệ quy thư mục thả vào.
+                <p style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                  Hỗ trợ PNG, JPG, JPEG, WEBP. Hệ thống hỗ trợ đọc đệ quy thư mục kéo thả.
                 </p>
+                
+                {/* Click selectors */}
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', pointerEvents: 'auto' }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    style={{ padding: '8px 16px', fontSize: '12.5px', borderRadius: '8px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <span>📁 Chọn Tệp Ảnh</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      folderInputRef.current?.click();
+                    }}
+                    style={{ padding: '8px 16px', fontSize: '12.5px', borderRadius: '8px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <span>📂 Chọn Cả Thư Mục</span>
+                  </button>
+                </div>
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
                 multiple
                 accept="image/*"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+              />
+              <input
+                ref={folderInputRef}
+                type="file"
+                multiple
+                {...{ webkitdirectory: "", directory: "" }}
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
               />
