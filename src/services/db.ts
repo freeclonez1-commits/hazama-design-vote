@@ -757,12 +757,11 @@ export const dbService = {
   async saveDesigns(newDesigns: Design[]): Promise<void> {
     if (isFirebaseEnabled && db) {
       try {
-        for (const d of newDesigns) {
-          await setDoc(doc(db, 'designs', d.id), d);
-        }
+        await Promise.all(newDesigns.map(d => setDoc(doc(db, 'designs', d.id), d)));
         return;
       } catch (e) {
         console.error("Firestore saveDesigns error:", e);
+        throw e;
       }
     }
 
@@ -785,6 +784,7 @@ export const dbService = {
         return design;
       } catch (e) {
         console.error("Firestore saveDesign error:", e);
+        throw e;
       }
     }
 
@@ -855,12 +855,11 @@ export const dbService = {
   async saveVariants(newVariants: Variant[]): Promise<void> {
     if (isFirebaseEnabled && db) {
       try {
-        for (const v of newVariants) {
-          await setDoc(doc(db, 'variants', v.id), v);
-        }
+        await Promise.all(newVariants.map(v => setDoc(doc(db, 'variants', v.id), v)));
         return;
       } catch (e) {
         console.error("Firestore saveVariants error:", e);
+        throw e;
       }
     }
 
@@ -1024,12 +1023,11 @@ export const dbService = {
   async saveImportLogs(newLogs: ImportLog[]): Promise<void> {
     if (isFirebaseEnabled && db) {
       try {
-        for (const log of newLogs) {
-          await setDoc(doc(db, 'import_logs', log.id), log);
-        }
+        await Promise.all(newLogs.map(log => setDoc(doc(db, 'import_logs', log.id), log)));
         return;
       } catch (e) {
         console.error("Firestore saveImportLogs error:", e);
+        throw e;
       }
     }
 
