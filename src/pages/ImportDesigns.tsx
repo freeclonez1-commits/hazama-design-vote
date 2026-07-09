@@ -182,13 +182,14 @@ const parseFileInfo = (filename: string, relativePath = ''): { designCode: strin
   let designCode = '';
 
   // 1. ƯU TIÊN 1: Lấy Tên Thư Mục Cha (Folder Name) trực tiếp nếu kéo thả/tải thư mục
+  // Quét ngược từ thư mục cha trực tiếp lên các thư mục cấp cao hơn để tìm tên thư mục hợp lệ làm mã thiết kế.
   if (relativePath && (relativePath.includes('/') || relativePath.includes('\\'))) {
     const pathParts = relativePath.split(/[/\\]+/).filter(Boolean);
-    if (pathParts.length >= 2) {
-      // Thư mục trực tiếp chứa file ảnh (ví dụ: "MOCK 1", "MOCK 2", "DESIGN A")
-      const folderName = pathParts[pathParts.length - 2].trim();
+    for (let i = pathParts.length - 2; i >= 0; i--) {
+      const folderName = pathParts[i].trim();
       if (folderName && !ignoreKeywords.includes(folderName.toLowerCase())) {
         designCode = folderName.toUpperCase();
+        break;
       }
     }
   }
