@@ -677,9 +677,8 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
       const nowStr = new Date().toISOString();
       const logs: ImportLog[] = [];
 
-      // 1. Fetch existing designs and variants
+      // 1. Fetch existing designs
       const existingDesigns = await dbService.listDesigns(sessionId);
-      const existingVariants = await dbService.listAllVariants();
 
       let addedDesignsCount = 0;
       let addedVariantsCount = 0;
@@ -712,19 +711,18 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
 
         const newVariantsForDesign: Variant[] = [];
 
-        // Process variants in group
+        // Process variants in group - always create NEW variants, never overwrite existing ones
         for (const item of groupItems) {
           const compressedDataUrl = await compressImage(item.dataUrl);
 
-          const existingVar = existingVariants.find(
-            v => v.designId === design!.id && v.color === item.color && v.view === item.view
-          );
-
-          const variantId = existingVar ? existingVar.id : `variant_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+          // Always generate a fresh variant ID — we do NOT reuse existing variant IDs.
+          // Reusing an ID would cause setDoc to OVERWRITE the existing image with the new one,
+          // which is the root cause of the "5 new products replacing 5 existing products" bug.
+          const variantId = `variant_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           
           const variant: Variant = {
             id: variantId,
-            designId: design.id,
+            designId: design!.id,
             color: item.color,
             view: item.view,
             imageUrl: compressedDataUrl,
@@ -745,15 +743,17 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
           });
         }
 
-        // Save designs and variants
-        await dbService.saveDesign(design);
+        // Save design and new variants
+        await dbService.saveDesign(design!);
         await dbService.saveVariants(newVariantsForDesign);
 
-        // Update cover image to first front variant
-        const firstFront = newVariantsForDesign.find(v => v.view === 'f') || newVariantsForDesign[0];
-        if (firstFront && design.coverImageUrl !== firstFront.imageUrl) {
-          design.coverImageUrl = firstFront.imageUrl;
-          await dbService.saveDesign(design);
+        // Update cover image to first front variant if design has no cover yet
+        if (!design!.coverImageUrl) {
+          const firstFront = newVariantsForDesign.find(v => v.view === 'f') || newVariantsForDesign[0];
+          if (firstFront) {
+            design!.coverImageUrl = firstFront.imageUrl;
+            await dbService.saveDesign(design!);
+          }
         }
       }
 
