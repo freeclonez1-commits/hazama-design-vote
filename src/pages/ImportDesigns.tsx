@@ -437,7 +437,7 @@ const VariantCard: React.FC<VariantCardProps> = React.memo(({ item, groupCode, g
 });
 
 export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab }) => {
-  const { activeSession, loadSessionDetails, importLogs } = useDb();
+  const { activeSession, loadSessionDetails, importLogs, designs: existingSessionDesigns } = useDb();
   const { toast } = useToast();
   
   const [uploading, setUploading] = useState(false);
@@ -1055,6 +1055,10 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
               const variantKeys = items.map(item => `${item.color}_${item.view}`);
               const hasDuplicates = variantKeys.length !== new Set(variantKeys).size;
 
+              // Check if this code already exists in the current session
+              const existingDesignCodes = existingSessionDesigns.map(d => d.code?.trim().toUpperCase());
+              const codeAlreadyExists = existingDesignCodes.includes(groupCode.trim().toUpperCase());
+
               return (
                 <div 
                   key={groupCode} 
@@ -1066,8 +1070,8 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
                   onDrop={(e) => handleDropToSpecificGroup(e, groupCode)}
                   style={{ 
                     padding: '24px', 
-                    borderLeft: hasDuplicates ? '5px solid var(--warning)' : '5px solid var(--accent)',
-                    backgroundColor: '#FFFFFF',
+                    borderLeft: codeAlreadyExists ? '5px solid #ef4444' : hasDuplicates ? '5px solid var(--warning)' : '5px solid var(--accent)',
+                    backgroundColor: codeAlreadyExists ? '#fff5f5' : '#FFFFFF',
                     borderRadius: '16px',
                     boxShadow: '0 4px 15px rgba(0,0,0,0.01)',
                     transition: 'all 0.2s ease'
@@ -1094,7 +1098,33 @@ export const ImportDesigns: React.FC<ImportDesignsProps> = ({ sessionId, setTab 
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {codeAlreadyExists && (
+                        <span style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', background: '#fee2e2', color: '#dc2626', fontWeight: 700, border: '1px solid #fca5a5' }}>
+                          <AlertTriangle size={12} />
+                          Mã đã tồn tại! Ảnh sẽ được THÊM vào, không tạo mẫu mới
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Auto-rename: find next available suffix like "MOCK 1 (2)", "MOCK 1 (3)"...
+                              let suffix = 2;
+                              let newCode = `${groupCode} (${suffix})`;
+                              while (existingDesignCodes.includes(newCode.trim().toUpperCase()) ||
+                                     Object.keys(groups).map(k => k.trim().toUpperCase()).includes(newCode.trim().toUpperCase())) {
+                                suffix++;
+                                newCode = `${groupCode} (${suffix})`;
+                              }
+                              setFilesToReview(prev =>
+                                prev.map(item => item.designCode.trim().toUpperCase() === groupCode ? { ...item, designCode: newCode } : item)
+                              );
+                            }}
+                            style={{ background: '#dc2626', color: '#fff', border: 'none', borderRadius: '6px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer', fontWeight: 700 }}
+                            title="Tự động thêm hậu tố để tạo mẫu mới"
+                          >
+                            Đổi sang mới
+                          </button>
+                        </span>
+                      )}
                       {hasDuplicates && (
                         <span className="badge badge-warning" style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: '20px' }}>
                           <AlertTriangle size={12} />
