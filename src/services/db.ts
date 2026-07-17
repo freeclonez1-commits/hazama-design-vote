@@ -574,7 +574,7 @@ export async function initializeMockData(): Promise<void> {
 // DATABASE API (Firestore simulation)
 // ----------------------------------------------------
 
-const withTimeout = <T>(promise: Promise<T>, timeoutMs = 3000): Promise<T> => {
+const withTimeout = <T>(promise: Promise<T>, timeoutMs = 5000): Promise<T> => {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error('TIMEOUT'));
@@ -592,12 +592,17 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs = 3000): Promise<T> => {
   });
 };
 
+// Auth queries: 5s timeout (fallback localStorage is acceptable)
+const AUTH_TIMEOUT = 5000;
+// Data queries: 10s timeout (fallback is empty localStorage = broken UI on Vercel)
+const DATA_TIMEOUT = 10000;
+
 export const dbService = {
   // Users APIs
   async getUser(uid: string): Promise<User | null> {
     if (isFirebaseEnabled && db) {
       try {
-        const docSnap = await withTimeout(getDoc(doc(db, 'users', uid)));
+        const docSnap = await withTimeout(getDoc(doc(db, 'users', uid)), AUTH_TIMEOUT);
         return docSnap.exists() ? (docSnap.data() as User) : null;
       } catch (e) {
         console.error("Firestore getUser error:", e);
@@ -611,7 +616,7 @@ export const dbService = {
     if (isFirebaseEnabled && db) {
       try {
         const q = query(collection(db, 'users'), where('email', '==', email.trim().toLowerCase()));
-        const snap = await withTimeout(getDocs(q));
+        const snap = await withTimeout(getDocs(q), AUTH_TIMEOUT);
         if (!snap.empty) {
           return snap.docs[0].data() as User;
         }
@@ -651,7 +656,7 @@ export const dbService = {
   async listUsers(): Promise<User[]> {
     if (isFirebaseEnabled && db) {
       try {
-        const snap = await withTimeout(getDocs(collection(db, 'users')));
+        const snap = await withTimeout(getDocs(collection(db, 'users')), AUTH_TIMEOUT);
         return snap.docs.map(d => d.data() as User);
       } catch (e) {
         console.error("Firestore listUsers error:", e);
@@ -678,7 +683,7 @@ export const dbService = {
   async listSessions(): Promise<VoteSession[]> {
     if (isFirebaseEnabled && db) {
       try {
-        const snap = await withTimeout(getDocs(collection(db, 'vote_sessions')));
+        const snap = await withTimeout(getDocs(collection(db, 'vote_sessions')), AUTH_TIMEOUT);
         return snap.docs.map(d => d.data() as VoteSession);
       } catch (e) {
         console.error("Firestore listSessions error:", e);
@@ -690,7 +695,7 @@ export const dbService = {
   async getSession(id: string): Promise<VoteSession | null> {
     if (isFirebaseEnabled && db) {
       try {
-        const docSnap = await withTimeout(getDoc(doc(db, 'vote_sessions', id)));
+        const docSnap = await withTimeout(getDoc(doc(db, 'vote_sessions', id)), AUTH_TIMEOUT);
         return docSnap.exists() ? (docSnap.data() as VoteSession) : null;
       } catch (e) {
         console.error("Firestore getSession error:", e);
@@ -780,7 +785,7 @@ export const dbService = {
     if (isFirebaseEnabled && db) {
       try {
         const q = query(collection(db, 'designs'), where('sessionId', '==', sessionId));
-        const snap = await withTimeout(getDocs(q));
+        const snap = await withTimeout(getDocs(q), DATA_TIMEOUT);
         return snap.docs
           .map(d => d.data() as Design)
           .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -866,7 +871,7 @@ export const dbService = {
     if (isFirebaseEnabled && db) {
       try {
         const q = query(collection(db, 'variants'), where('designId', '==', designId));
-        const snap = await withTimeout(getDocs(q));
+        const snap = await withTimeout(getDocs(q), DATA_TIMEOUT);
         return snap.docs
           .map(d => d.data() as Variant)
           .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -884,7 +889,7 @@ export const dbService = {
   async listAllVariants(): Promise<Variant[]> {
     if (isFirebaseEnabled && db) {
       try {
-        const snap = await withTimeout(getDocs(collection(db, 'variants')));
+        const snap = await withTimeout(getDocs(collection(db, 'variants')), DATA_TIMEOUT);
         return snap.docs.map(d => d.data() as Variant);
       } catch (e) {
         console.error("Firestore listAllVariants error:", e);
@@ -935,7 +940,7 @@ export const dbService = {
     if (isFirebaseEnabled && db) {
       try {
         const q = query(collection(db, 'votes'), where('sessionId', '==', sessionId));
-        const snap = await withTimeout(getDocs(q));
+        const snap = await withTimeout(getDocs(q), DATA_TIMEOUT);
         return snap.docs.map(d => d.data() as Vote);
       } catch (e) {
         console.error("Firestore listVotes error:", e);
@@ -1044,7 +1049,7 @@ export const dbService = {
     if (isFirebaseEnabled && db) {
       try {
         const q = query(collection(db, 'import_logs'), where('sessionId', '==', sessionId));
-        const snap = await withTimeout(getDocs(q));
+        const snap = await withTimeout(getDocs(q), DATA_TIMEOUT);
         return snap.docs
           .map(d => d.data() as ImportLog)
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
