@@ -6,6 +6,7 @@ import { DesignCard } from '../components/DesignCard';
 import { Modal } from '../components/Modal';
 import type { Design, Variant, DesignComment, UserPresence } from '../types/models';
 import { dbService } from '../services/db';
+import { isFirebaseEnabled } from '../services/firebaseService';
 import {
   Clock,
   CheckCircle,
@@ -513,8 +514,8 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
 
     const combined = [...others];
 
-    // Chỉ bổ sung mock users khi chưa có đủ 2 người thật khác
-    if (others.length < 2) {
+    // Chỉ bổ sung mock users trong chế độ Mock/Demo (khi Firebase bị tắt)
+    if (!isFirebaseEnabled && others.length < 2) {
       demoUsers.forEach(du => {
         // Không thêm nếu trùng với bản thân hoặc đã có trong danh sách thật
         if (

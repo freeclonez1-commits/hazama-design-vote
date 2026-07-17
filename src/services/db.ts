@@ -898,6 +898,33 @@ export const dbService = {
     return getStorage<Variant[]>(KEYS.VARIANTS, []);
   },
 
+  async listVariantsForDesigns(designIds: string[]): Promise<Variant[]> {
+    if (designIds.length === 0) return [];
+    if (isFirebaseEnabled && db) {
+      try {
+        const chunks: string[][] = [];
+        for (let i = 0; i < designIds.length; i += 10) {
+          chunks.push(designIds.slice(i, i + 10));
+        }
+
+        const results = await Promise.all(
+          chunks.map(async (chunk) => {
+            const q = query(collection(db, 'variants'), where('designId', 'in', chunk));
+            const snap = await withTimeout(getDocs(q), DATA_TIMEOUT);
+            return snap.docs.map(d => d.data() as Variant);
+          })
+        );
+        return results.flat();
+      } catch (e) {
+        console.error("Firestore listVariantsForDesigns error, returning empty list:", e);
+        return [];
+      }
+    }
+
+    const allVariants = getStorage<Variant[]>(KEYS.VARIANTS, []);
+    return allVariants.filter(v => designIds.includes(v.designId));
+  },
+
   async saveVariants(newVariants: Variant[]): Promise<void> {
     if (isFirebaseEnabled && db) {
       try {

@@ -101,19 +101,21 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       setActiveSession(session);
 
       if (session) {
-        // Tải song song (parallel) để giảm độ trễ sau khi xác nhận session tồn tại
-        const [loadedDesigns, allVariants, loadedVotes, loadedLogs] = await Promise.all([
+        // Tải song song (parallel) các dữ liệu cơ bản của session
+        const [loadedDesigns, loadedVotes, loadedLogs] = await Promise.all([
           dbService.listDesigns(sessionId),
-          dbService.listAllVariants(),
           dbService.listVotes(sessionId),
           dbService.listImportLogs(sessionId)
         ]);
 
         setDesigns(loadedDesigns);
-        const designIds = loadedDesigns.map(d => d.id);
-        setVariants(allVariants.filter(v => designIds.includes(v.designId)));
         setVotes(loadedVotes);
         setImportLogs(loadedLogs);
+
+        // Chỉ tải những variants thuộc về designs của session này (Tối ưu hóa tối đa)
+        const designIds = loadedDesigns.map(d => d.id);
+        const sessionVariants = await dbService.listVariantsForDesigns(designIds);
+        setVariants(sessionVariants);
       } else {
         setDesigns([]);
         setVariants([]);
@@ -202,7 +204,8 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
       // Group existing designs to check for code matches
       const existingDesigns = await dbService.listDesigns(sessionId);
-      const existingVariants = await dbService.listAllVariants();
+      const existingDesignIds = existingDesigns.map(d => d.id);
+      const existingVariants = await dbService.listVariantsForDesigns(existingDesignIds);
 
       // 1. Process files
       for (const file of files) {
