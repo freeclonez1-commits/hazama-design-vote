@@ -1275,7 +1275,6 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
               <div style={{ display: 'flex', alignItems: 'center', borderRight: '1px solid rgba(0,0,0,0.08)', paddingRight: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                   {displayPresence.map((p, idx) => {
-                    // Màu curated premium, hash theo uid để mỗi user có màu ổn định
                     const PALETTE = ['#007AFF', '#34C759', '#FF9500', '#AF52DE', '#FF2D55', '#5856D6', '#FF6B35', '#00B4D8'];
                     let hash = 0;
                     for (let i = 0; i < p.uid.length; i++) {
@@ -1284,6 +1283,9 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                     const bgColor = PALETTE[Math.abs(hash) % PALETTE.length];
                     const isIdle = p.status === 'idle';
                     const isSelf = p.uid === user?.uid;
+                    // Avatar bên phải có zIndex cao hơn → hover luôn đúng người
+                    const baseZ = idx + 1;
+                    const tooltipText = `${p.name} (${p.role})${isSelf ? ' — Bạn' : ''} • ${isIdle ? 'Treo máy' : 'Đang hoạt động'}`;
 
                     return (
                       <div
@@ -1291,19 +1293,25 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                         style={{
                           position: 'relative',
                           marginLeft: idx === 0 ? '0px' : '-8px',
-                          zIndex: displayPresence.length - idx,
+                          zIndex: baseZ,
                           transition: 'all 0.2s ease',
                           cursor: 'pointer',
                           flexShrink: 0
                         }}
-                        title={`${p.name} (${p.role})${isSelf ? ' — Bạn' : ''} • ${isIdle ? 'Treo máy' : 'Đang hoạt động'}`}
                         onMouseEnter={e => {
-                          (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)';
-                          (e.currentTarget as HTMLDivElement).style.zIndex = '99';
+                          const el = e.currentTarget as HTMLDivElement;
+                          el.style.transform = 'translateY(-3px)';
+                          el.style.zIndex = '99';
+                          // Hiện tooltip tùy chỉnh
+                          const tip = el.querySelector('.avatar-tooltip') as HTMLElement;
+                          if (tip) tip.style.opacity = '1';
                         }}
                         onMouseLeave={e => {
-                          (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
-                          (e.currentTarget as HTMLDivElement).style.zIndex = String(displayPresence.length - idx);
+                          const el = e.currentTarget as HTMLDivElement;
+                          el.style.transform = 'translateY(0)';
+                          el.style.zIndex = String(baseZ);
+                          const tip = el.querySelector('.avatar-tooltip') as HTMLElement;
+                          if (tip) tip.style.opacity = '0';
                         }}
                       >
                         {/* Avatar vòng tròn */}
@@ -1331,7 +1339,8 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                               ? 'none'
                               : '0 2px 6px rgba(0,0,0,0.15)',
                             transition: 'all 0.2s ease',
-                            userSelect: 'none'
+                            userSelect: 'none',
+                            pointerEvents: 'none' // Chặn inner div chiếm hover
                           }}
                         >
                           {p.name.charAt(0).toUpperCase()}
@@ -1346,8 +1355,44 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                           borderRadius: '50%',
                           backgroundColor: isIdle ? '#FF9F0A' : '#30D158',
                           border: '1.5px solid #FFFFFF',
-                          boxShadow: isIdle ? 'none' : '0 0 0 2px rgba(48,209,88,0.3)'
+                          boxShadow: isIdle ? 'none' : '0 0 0 2px rgba(48,209,88,0.3)',
+                          pointerEvents: 'none'
                         }} />
+                        {/* Tooltip tùy chỉnh — luôn hiện đúng tên */}
+                        <div
+                          className="avatar-tooltip"
+                          style={{
+                            position: 'absolute',
+                            bottom: 'calc(100% + 8px)',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            backgroundColor: 'rgba(30,30,30,0.92)',
+                            color: '#FFFFFF',
+                            fontSize: '11px',
+                            fontWeight: 500,
+                            padding: '5px 9px',
+                            borderRadius: '8px',
+                            whiteSpace: 'nowrap',
+                            pointerEvents: 'none',
+                            opacity: 0,
+                            transition: 'opacity 0.15s ease',
+                            zIndex: 9999,
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                            backdropFilter: 'blur(4px)'
+                          }}
+                        >
+                          {tooltipText}
+                          <div style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            width: 0, height: 0,
+                            borderLeft: '5px solid transparent',
+                            borderRight: '5px solid transparent',
+                            borderTop: '5px solid rgba(30,30,30,0.92)'
+                          }} />
+                        </div>
                       </div>
                     );
                   })}
