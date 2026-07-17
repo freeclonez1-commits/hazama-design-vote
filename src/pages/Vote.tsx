@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useDb } from '../context/DbContext';
 import { useToast } from '../components/Toast';
 import { DesignCard } from '../components/DesignCard';
 import { Modal } from '../components/Modal';
-import type { Design, Variant, DesignComment } from '../types/models';
+import type { Design, Variant, DesignComment, UserPresence } from '../types/models';
 import { dbService } from '../services/db';
 import {
   Clock,
@@ -159,6 +159,7 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
   const [comments, setComments] = useState<DesignComment[]>([]);
   const [commentInput, setCommentInput] = useState('');
   const [isAnonymousComment, setIsAnonymousComment] = useState(false);
+
 
 
 
@@ -377,6 +378,159 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
       loadSessionDetails(targetSessionId);
     }
   }, [targetSessionId]);
+
+  const [presenceList, setPresenceList] = useState<UserPresence[]>([]);
+
+  // Real-time Presence Tracking (Google Sheets style)
+  useEffect(() => {
+    if (!user || !targetSessionId) return;
+
+    // Gửi tín hiệu online ban đầu
+    let currentStatus: 'online' | 'idle' = 'online';
+    const reportPresence = async (status: 'online' | 'idle') => {
+      currentStatus = status;
+      try {
+        await dbService.updatePresence({
+          uid: user.uid,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          sessionId: targetSessionId,
+          lastActive: new Date().toISOString(),
+          status
+        });
+      } catch (err) {
+        console.error('Failed to report presence:', err);
+      }
+    };
+
+    reportPresence('online');
+
+    // Nhịp tim (heartbeat) cập nhật trạng thái mỗi 10 giây
+    const heartbeat = setInterval(() => {
+      reportPresence(currentStatus);
+    }, 10000);
+
+    // Lắng nghe hoạt động để phát hiện treo máy (idle) sau 2 phút không tương tác
+    let idleTimeout: any;
+    const resetIdleTimer = () => {
+      clearTimeout(idleTimeout);
+      
+      if (currentStatus === 'idle') {
+        reportPresence('online');
+      }
+
+      idleTimeout = setTimeout(() => {
+        reportPresence('idle');
+      }, 120000); // 2 phút
+    };
+
+    resetIdleTimer();
+
+    const activityEvents = ['mousemove', 'keypress', 'click', 'scroll', 'touchstart'];
+    activityEvents.forEach(evt => {
+      window.addEventListener(evt, resetIdleTimer);
+    });
+
+    // Reset idle khi user quay lại tab Vote sau khi đã chuyển sang tab khác
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        resetIdleTimer();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Dọn dẹp trạng thái khi tắt trình duyệt/đóng tab
+    const handleUnload = () => {
+      dbService.removePresence(user.uid).catch(e => console.error('Unload presence error:', e));
+    };
+    window.addEventListener('beforeunload', handleUnload);
+
+    // Đăng ký nhận danh sách người truy cập thời gian thực
+    const unsubscribe = dbService.subscribePresence(targetSessionId, (list) => {
+      const now = Date.now();
+      // Chỉ giữ lại những người có nhịp tim cập nhật trong 35 giây qua
+      const activeList = list.filter(p => {
+        const timeDiff = now - new Date(p.lastActive).getTime();
+        return timeDiff < 35000;
+      });
+      setPresenceList(activeList);
+    });
+
+    return () => {
+      clearInterval(heartbeat);
+      clearTimeout(idleTimeout);
+      activityEvents.forEach(evt => {
+        window.removeEventListener(evt, resetIdleTimer);
+      });
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleUnload);
+      handleUnload();
+      unsubscribe();
+    };
+  }, [user?.uid, targetSessionId]);
+
+  // Tạo danh sách hiển thị: bản thân + người khác (thật + mock bổ sung nếu chưa đủ)
+  const displayPresence = useMemo(() => {
+    if (!user || !targetSessionId) return [];
+
+    // Entry của bản thân — luôn hiện ở cuối bên phải
+    const selfEntry: UserPresence = {
+      uid: user.uid,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      sessionId: targetSessionId,
+      lastActive: new Date().toISOString(),
+      status: 'online'
+    };
+
+    // Người khác đang online thật sự (từ Firestore hoặc localStorage)
+    const others = presenceList.filter(p => p.uid !== user.uid);
+
+    // Demo users — hiện khi chưa có đủ 2 người thật khác online
+    // để Avatar Stack luôn trông sống động và nhiều màu sắc
+    const demoUsers: UserPresence[] = [
+      {
+        uid: 'demo_ceo',
+        name: 'Trần Việt Anh',
+        email: 'ceo@hazama.com',
+        role: 'CEO',
+        sessionId: targetSessionId,
+        lastActive: new Date().toISOString(),
+        status: 'online'
+      },
+      {
+        uid: 'demo_hr',
+        name: 'Phạm Thu Thảo',
+        email: 'hr@hazama.com',
+        role: 'HR',
+        sessionId: targetSessionId,
+        lastActive: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+        status: 'idle'
+      }
+    ];
+
+    const combined = [...others];
+
+    // Chỉ bổ sung mock users khi chưa có đủ 2 người thật khác
+    if (others.length < 2) {
+      demoUsers.forEach(du => {
+        // Không thêm nếu trùng với bản thân hoặc đã có trong danh sách thật
+        if (
+          user.email !== du.email &&
+          !combined.some(p => p.uid === du.uid || p.email === du.email)
+        ) {
+          combined.push(du);
+        }
+      });
+    }
+
+    // Bản thân luôn ở cuối cùng (ngoài cùng bên phải)
+    combined.push(selfEntry);
+
+    return combined;
+  }, [presenceList, targetSessionId, user]);
 
   useEffect(() => {
     if (user && publishedSessions.length > 0) {
@@ -1114,7 +1268,93 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
           </div>
 
           {/* User Profile Info & Control */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+            
+            {/* Google Sheets-style Avatar Stack */}
+            {displayPresence.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', borderRight: '1px solid rgba(0,0,0,0.08)', paddingRight: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  {displayPresence.map((p, idx) => {
+                    // Màu curated premium, hash theo uid để mỗi user có màu ổn định
+                    const PALETTE = ['#007AFF', '#34C759', '#FF9500', '#AF52DE', '#FF2D55', '#5856D6', '#FF6B35', '#00B4D8'];
+                    let hash = 0;
+                    for (let i = 0; i < p.uid.length; i++) {
+                      hash = p.uid.charCodeAt(i) + ((hash << 5) - hash);
+                    }
+                    const bgColor = PALETTE[Math.abs(hash) % PALETTE.length];
+                    const isIdle = p.status === 'idle';
+                    const isSelf = p.uid === user?.uid;
+
+                    return (
+                      <div
+                        key={p.uid}
+                        style={{
+                          position: 'relative',
+                          marginLeft: idx === 0 ? '0px' : '-8px',
+                          zIndex: displayPresence.length - idx,
+                          transition: 'all 0.2s ease',
+                          cursor: 'pointer',
+                          flexShrink: 0
+                        }}
+                        title={`${p.name} (${p.role})${isSelf ? ' — Bạn' : ''} • ${isIdle ? 'Treo máy' : 'Đang hoạt động'}`}
+                        onMouseEnter={e => {
+                          (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)';
+                          (e.currentTarget as HTMLDivElement).style.zIndex = '99';
+                        }}
+                        onMouseLeave={e => {
+                          (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
+                          (e.currentTarget as HTMLDivElement).style.zIndex = String(displayPresence.length - idx);
+                        }}
+                      >
+                        {/* Avatar vòng tròn */}
+                        <div
+                          style={{
+                            width: '30px',
+                            height: '30px',
+                            borderRadius: '50%',
+                            backgroundColor: isIdle ? '#C7C7CC' : bgColor,
+                            color: '#FFFFFF',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            border: isSelf
+                              ? '2.5px solid #007AFF'
+                              : isIdle
+                              ? '1.5px dashed #AEAEB2'
+                              : '2px solid #FFFFFF',
+                            opacity: isIdle ? 0.5 : 1,
+                            boxShadow: isSelf
+                              ? '0 0 0 2px rgba(0,122,255,0.25)'
+                              : isIdle
+                              ? 'none'
+                              : '0 2px 6px rgba(0,0,0,0.15)',
+                            transition: 'all 0.2s ease',
+                            userSelect: 'none'
+                          }}
+                        >
+                          {p.name.charAt(0).toUpperCase()}
+                        </div>
+                        {/* Chấm trạng thái nhỏ góc dưới-phải */}
+                        <div style={{
+                          position: 'absolute',
+                          bottom: '0px',
+                          right: '0px',
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          backgroundColor: isIdle ? '#FF9F0A' : '#30D158',
+                          border: '1.5px solid #FFFFFF',
+                          boxShadow: isIdle ? 'none' : '0 0 0 2px rgba(48,209,88,0.3)'
+                        }} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div style={{ textAlign: 'right' }}>
               <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '110px' }}>{user?.name}</p>
               <p className="hide-mobile" style={{ fontSize: '10px', color: 'var(--text-secondary)', margin: 0 }}>

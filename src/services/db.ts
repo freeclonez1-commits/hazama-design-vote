@@ -1,4 +1,4 @@
-import type { User, VoteSession, Design, Variant, Vote, ImportLog, DesignComment } from '../types/models';
+import type { User, VoteSession, Design, Variant, Vote, ImportLog, DesignComment, UserPresence } from '../types/models';
 import {
   collection,
   doc,
@@ -69,7 +69,8 @@ const KEYS = {
   VARIANTS: 'hazama_variants',
   VOTES: 'hazama_votes',
   IMPORT_LOGS: 'hazama_import_logs',
-  COMMENTS: 'hazama_comments'
+  COMMENTS: 'hazama_comments',
+  PRESENCE: 'hazama_presence'
 };
 
 // Helper utilities for local storage fetch/save
@@ -573,12 +574,30 @@ export async function initializeMockData(): Promise<void> {
 // DATABASE API (Firestore simulation)
 // ----------------------------------------------------
 
+const withTimeout = <T>(promise: Promise<T>, timeoutMs = 3000): Promise<T> => {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('TIMEOUT'));
+    }, timeoutMs);
+
+    promise
+      .then((res) => {
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+};
+
 export const dbService = {
   // Users APIs
   async getUser(uid: string): Promise<User | null> {
     if (isFirebaseEnabled && db) {
       try {
-        const docSnap = await getDoc(doc(db, 'users', uid));
+        const docSnap = await withTimeout(getDoc(doc(db, 'users', uid)));
         return docSnap.exists() ? (docSnap.data() as User) : null;
       } catch (e) {
         console.error("Firestore getUser error:", e);
@@ -592,7 +611,7 @@ export const dbService = {
     if (isFirebaseEnabled && db) {
       try {
         const q = query(collection(db, 'users'), where('email', '==', email.trim().toLowerCase()));
-        const snap = await getDocs(q);
+        const snap = await withTimeout(getDocs(q));
         if (!snap.empty) {
           return snap.docs[0].data() as User;
         }
@@ -632,7 +651,7 @@ export const dbService = {
   async listUsers(): Promise<User[]> {
     if (isFirebaseEnabled && db) {
       try {
-        const snap = await getDocs(collection(db, 'users'));
+        const snap = await withTimeout(getDocs(collection(db, 'users')));
         return snap.docs.map(d => d.data() as User);
       } catch (e) {
         console.error("Firestore listUsers error:", e);
@@ -659,7 +678,7 @@ export const dbService = {
   async listSessions(): Promise<VoteSession[]> {
     if (isFirebaseEnabled && db) {
       try {
-        const snap = await getDocs(collection(db, 'vote_sessions'));
+        const snap = await withTimeout(getDocs(collection(db, 'vote_sessions')));
         return snap.docs.map(d => d.data() as VoteSession);
       } catch (e) {
         console.error("Firestore listSessions error:", e);
@@ -671,7 +690,7 @@ export const dbService = {
   async getSession(id: string): Promise<VoteSession | null> {
     if (isFirebaseEnabled && db) {
       try {
-        const docSnap = await getDoc(doc(db, 'vote_sessions', id));
+        const docSnap = await withTimeout(getDoc(doc(db, 'vote_sessions', id)));
         return docSnap.exists() ? (docSnap.data() as VoteSession) : null;
       } catch (e) {
         console.error("Firestore getSession error:", e);
@@ -761,7 +780,7 @@ export const dbService = {
     if (isFirebaseEnabled && db) {
       try {
         const q = query(collection(db, 'designs'), where('sessionId', '==', sessionId));
-        const snap = await getDocs(q);
+        const snap = await withTimeout(getDocs(q));
         return snap.docs
           .map(d => d.data() as Design)
           .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -847,7 +866,7 @@ export const dbService = {
     if (isFirebaseEnabled && db) {
       try {
         const q = query(collection(db, 'variants'), where('designId', '==', designId));
-        const snap = await getDocs(q);
+        const snap = await withTimeout(getDocs(q));
         return snap.docs
           .map(d => d.data() as Variant)
           .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -865,7 +884,7 @@ export const dbService = {
   async listAllVariants(): Promise<Variant[]> {
     if (isFirebaseEnabled && db) {
       try {
-        const snap = await getDocs(collection(db, 'variants'));
+        const snap = await withTimeout(getDocs(collection(db, 'variants')));
         return snap.docs.map(d => d.data() as Variant);
       } catch (e) {
         console.error("Firestore listAllVariants error:", e);
@@ -916,7 +935,7 @@ export const dbService = {
     if (isFirebaseEnabled && db) {
       try {
         const q = query(collection(db, 'votes'), where('sessionId', '==', sessionId));
-        const snap = await getDocs(q);
+        const snap = await withTimeout(getDocs(q));
         return snap.docs.map(d => d.data() as Vote);
       } catch (e) {
         console.error("Firestore listVotes error:", e);
@@ -1025,7 +1044,7 @@ export const dbService = {
     if (isFirebaseEnabled && db) {
       try {
         const q = query(collection(db, 'import_logs'), where('sessionId', '==', sessionId));
-        const snap = await getDocs(q);
+        const snap = await withTimeout(getDocs(q));
         return snap.docs
           .map(d => d.data() as ImportLog)
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -1107,6 +1126,74 @@ export const dbService = {
 
     const comments = getStorage<DesignComment[]>(KEYS.COMMENTS, []);
     setStorage(KEYS.COMMENTS, comments.filter(c => c.id !== commentId));
+  },
+
+  // Presence (Google Sheets-like real-time active users) APIs
+  async updatePresence(presence: UserPresence): Promise<void> {
+    if (isFirebaseEnabled && db) {
+      try {
+        await setDoc(doc(db, 'presence', `user_${presence.uid}`), presence);
+        return;
+      } catch (e) {
+        console.error("Firestore updatePresence error:", e);
+      }
+    }
+    // Fallback: localStorage
+    const presenceList = getStorage<UserPresence[]>(KEYS.PRESENCE, []);
+    const idx = presenceList.findIndex(p => p.uid === presence.uid);
+    if (idx >= 0) {
+      presenceList[idx] = presence;
+    } else {
+      presenceList.push(presence);
+    }
+    setStorage(KEYS.PRESENCE, presenceList);
+  },
+
+  async removePresence(uid: string): Promise<void> {
+    if (isFirebaseEnabled && db) {
+      try {
+        await deleteDoc(doc(db, 'presence', `user_${uid}`));
+        return;
+      } catch (e) {
+        console.error("Firestore removePresence error:", e);
+      }
+    }
+    // Fallback: localStorage
+    const presenceList = getStorage<UserPresence[]>(KEYS.PRESENCE, []);
+    const updated = presenceList.filter(p => p.uid !== uid);
+    setStorage(KEYS.PRESENCE, updated);
+  },
+
+  subscribePresence(sessionId: string, callback: (presenceList: UserPresence[]) => void): () => void {
+    let useFirebase = false;
+    if (isFirebaseEnabled && db) {
+      try {
+        const q = query(collection(db, 'presence'), where('sessionId', '==', sessionId));
+        const unsubscribe = onSnapshot(q, (snap) => {
+          const presence = snap.docs.map(d => d.data() as UserPresence);
+          callback(presence);
+        }, (err) => {
+          console.error("Firestore onSnapshot error in subscribePresence:", err);
+        });
+        useFirebase = true;
+        return unsubscribe;
+      } catch (e) {
+        console.error("Firestore subscribePresence subscription error, falling back to localStorage:", e);
+        // Fall through to localStorage polling below
+      }
+    }
+
+    if (useFirebase) return () => {};
+
+    // Fallback: local storage polling (every 3 seconds) for Mock/Demo mode
+    const poll = () => {
+      const presenceList = getStorage<UserPresence[]>(KEYS.PRESENCE, []);
+      const sessionPresence = presenceList.filter(p => p.sessionId === sessionId);
+      callback(sessionPresence);
+    };
+    poll();
+    const timer = setInterval(poll, 3000);
+    return () => clearInterval(timer);
   },
 
   // Reset entire database to pre-populated mock state

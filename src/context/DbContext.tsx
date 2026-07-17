@@ -96,25 +96,23 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const loadSessionDetails = async (sessionId: string) => {
     setLoading(true);
     try {
+      // Kiểm tra session trước — nếu không tồn tại thì không tải dữ liệu con
       const session = await dbService.getSession(sessionId);
       setActiveSession(session);
 
       if (session) {
-        const loadedDesigns = await dbService.listDesigns(sessionId);
+        // Tải song song (parallel) để giảm độ trễ sau khi xác nhận session tồn tại
+        const [loadedDesigns, allVariants, loadedVotes, loadedLogs] = await Promise.all([
+          dbService.listDesigns(sessionId),
+          dbService.listAllVariants(),
+          dbService.listVotes(sessionId),
+          dbService.listImportLogs(sessionId)
+        ]);
+
         setDesigns(loadedDesigns);
-
-        // Load all variants for these designs
-        const allVariants = await dbService.listAllVariants();
         const designIds = loadedDesigns.map(d => d.id);
-        const filteredVariants = allVariants.filter(v => designIds.includes(v.designId));
-        setVariants(filteredVariants);
-
-        // Load votes
-        const loadedVotes = await dbService.listVotes(sessionId);
+        setVariants(allVariants.filter(v => designIds.includes(v.designId)));
         setVotes(loadedVotes);
-
-        // Load import logs
-        const loadedLogs = await dbService.listImportLogs(sessionId);
         setImportLogs(loadedLogs);
       } else {
         setDesigns([]);

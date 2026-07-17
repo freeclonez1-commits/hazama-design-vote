@@ -74,3 +74,13 @@ export interface DesignComment {
   content: string;
   createdAt: string;
 }
+
+export interface UserPresence {
+  uid: string;
+  name: string;
+  email: string;
+  role: string;
+  sessionId: string;
+  lastActive: string; // ISO datetime string
+  status: 'online' | 'idle';
+}
