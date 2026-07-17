@@ -4,13 +4,15 @@ import { dbService } from '../services/db';
 import { useToast } from '../components/Toast';
 import { Pagination } from '../components/Pagination';
 import type { User } from '../types/models';
-import { UserPlus, ArrowRightLeft, Check, ShieldAlert } from 'lucide-react';
+import { UserPlus, ArrowRightLeft, Check, ShieldAlert, Trash2, Eye, Laptop, Phone, Calendar } from 'lucide-react';
+import { Modal } from '../components/Modal';
 
 export const Members: React.FC = () => {
-  const { user: currentUser, updateUserPermission, switchUser } = useAuth();
+  const { user: currentUser, updateUserPermission, switchUser, isSuperAdmin, deleteUser } = useAuth();
   const { toast } = useToast();
   const [usersList, setUsersList] = useState<User[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedUserForModal, setSelectedUserForModal] = useState<User | null>(null);
   const pageSize = 10;
 
   // New member mock inputs
@@ -69,6 +71,18 @@ export const Members: React.FC = () => {
       window.location.hash = '#/';
     } catch (e) {
       toast('Không thể chuyển đổi tài khoản.', 'error');
+    }
+  };
+
+  const handleDeleteUser = async (uid: string, name: string) => {
+    if (window.confirm(`Bạn có chắc chắn muốn xóa thành viên "${name}" khỏi hệ thống?`)) {
+      try {
+        await deleteUser(uid);
+        toast(`Đã xóa thành viên "${name}" thành công.`, 'success');
+        loadUsers();
+      } catch (e: any) {
+        toast(e.message || 'Lỗi khi xóa thành viên.', 'error');
+      }
     }
   };
 
@@ -150,7 +164,18 @@ export const Members: React.FC = () => {
                       <span className="badge badge-secondary">{u.role}</span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '8px' }}>
+                      <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                        {isSuperAdmin && (
+                          <button
+                            onClick={() => setSelectedUserForModal(u)}
+                            className="btn btn-outline"
+                            style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '8px', gap: '4px' }}
+                            title="Xem chi tiết thiết bị & IP"
+                          >
+                            <Eye size={12} />
+                            <span>Chi tiết</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => handleApprovePending(u.uid, u.name, 'Voter')}
                           className="btn btn-primary"
@@ -166,6 +191,17 @@ export const Members: React.FC = () => {
                         >
                           <span>Duyệt: Viewer</span>
                         </button>
+                        {isSuperAdmin && (
+                          <button
+                            onClick={() => handleDeleteUser(u.uid, u.name)}
+                            className="btn btn-outline"
+                            style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '8px', gap: '4px', color: 'var(--danger)', borderColor: '#FFE5E5' }}
+                            title="Xóa yêu cầu"
+                          >
+                            <Trash2 size={12} />
+                            <span>Xóa</span>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -260,16 +296,42 @@ export const Members: React.FC = () => {
                       </select>
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      {u.uid !== currentUser?.uid && (
-                        <button
-                          onClick={() => handleSwitchToUser(u.uid, u.name)}
-                          className="btn btn-outline"
-                          style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '8px', gap: '4px' }}
-                        >
-                          <ArrowRightLeft size={12} />
-                          <span>Đăng nhập hộ</span>
-                        </button>
-                      )}
+                      <div style={{ display: 'inline-flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        {isSuperAdmin && (
+                          <button
+                            onClick={() => setSelectedUserForModal(u)}
+                            className="btn btn-outline"
+                            style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '8px', gap: '4px' }}
+                            title="Xem chi tiết thiết bị & IP"
+                          >
+                            <Eye size={12} />
+                            <span>Chi tiết</span>
+                          </button>
+                        )}
+                        
+                        {u.uid !== currentUser?.uid && (
+                          <button
+                            onClick={() => handleSwitchToUser(u.uid, u.name)}
+                            className="btn btn-outline"
+                            style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '8px', gap: '4px' }}
+                          >
+                            <ArrowRightLeft size={12} />
+                            <span>Đăng nhập hộ</span>
+                          </button>
+                        )}
+
+                        {isSuperAdmin && u.uid !== currentUser?.uid && (
+                          <button
+                            onClick={() => handleDeleteUser(u.uid, u.name)}
+                            className="btn btn-outline animate-fade-in"
+                            style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '8px', gap: '4px', color: 'var(--danger)', borderColor: '#FFE5E5' }}
+                            title="Xóa thành viên"
+                          >
+                            <Trash2 size={12} />
+                            <span>Xóa</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -341,6 +403,111 @@ export const Members: React.FC = () => {
         </div>
 
       </div>
+
+      {/* --- MEMBER DETAILS MODAL (Only for Super Admin) --- */}
+      {isSuperAdmin && (
+        <Modal
+          isOpen={!!selectedUserForModal}
+          onClose={() => setSelectedUserForModal(null)}
+          title="Thông tin chi tiết thành viên"
+          maxWidth="500px"
+        >
+          {selectedUserForModal && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
+                <div
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: '50%',
+                    backgroundColor: selectedUserForModal.permission === 'Admin' ? '#1D1D1F' : '#E5E5EA',
+                    color: selectedUserForModal.permission === 'Admin' ? '#FFFFFF' : '#1D1D1F',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: '20px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                  }}
+                >
+                  {selectedUserForModal.name ? selectedUserForModal.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                    {selectedUserForModal.name}
+                  </h4>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    {selectedUserForModal.email}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border)' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ShieldAlert size={14} /> Quyền hạn (Permission)
+                  </span>
+                  <span className={`badge ${selectedUserForModal.permission === 'Admin' ? 'badge-danger' : selectedUserForModal.permission === 'Voter' ? 'badge-success' : 'badge-info'}`} style={{ fontSize: '12px', fontWeight: 600 }}>
+                    {selectedUserForModal.permission}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border)' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ArrowRightLeft size={14} /> Phòng ban (Role)
+                  </span>
+                  <span className="badge badge-secondary" style={{ fontSize: '12px', fontWeight: 600 }}>
+                    {selectedUserForModal.role}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border)' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {selectedUserForModal.deviceType === 'Mobile' ? <Phone size={14} /> : <Laptop size={14} />} Thiết bị truy cập
+                  </span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {selectedUserForModal.deviceType === 'Mobile' ? '📱 Điện thoại (Mobile)' : selectedUserForModal.deviceType === 'PC' ? '💻 Máy tính (PC)' : '❓ Chưa ghi nhận'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--border)' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Eye size={14} /> Địa chỉ IP truy cập
+                  </span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--accent)' }}>
+                    {selectedUserForModal.ipAddress ? `🌐 ${selectedUserForModal.ipAddress}` : '❓ Chưa ghi nhận'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Calendar size={14} /> Ngày tham gia
+                  </span>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {new Date(selectedUserForModal.createdAt).toLocaleDateString('vi-VN', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setSelectedUserForModal(null)}
+                  className="btn btn-primary"
+                  style={{ borderRadius: '10px', fontSize: '13px', padding: '10px 24px' }}
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
 
     </div>
   );

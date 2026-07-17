@@ -131,7 +131,9 @@ export async function initializeMockData(): Promise<void> {
       role: 'Designer',
       permission: 'Admin',
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      deviceType: 'PC',
+      ipAddress: '116.109.84.212'
     },
     {
       uid: 'ceo_1',
@@ -140,7 +142,9 @@ export async function initializeMockData(): Promise<void> {
       role: 'CEO',
       permission: 'Voter',
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      deviceType: 'PC',
+      ipAddress: '14.238.109.43'
     },
     {
       uid: 'user_ads',
@@ -149,7 +153,9 @@ export async function initializeMockData(): Promise<void> {
       role: 'Ads',
       permission: 'Voter',
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      deviceType: 'Mobile',
+      ipAddress: '27.79.165.120'
     },
     {
       uid: 'user_hr',
@@ -158,7 +164,9 @@ export async function initializeMockData(): Promise<void> {
       role: 'HR',
       permission: 'Voter',
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      deviceType: 'Mobile',
+      ipAddress: '113.161.40.85'
     },
     {
       uid: 'user_kt',
@@ -631,6 +639,20 @@ export const dbService = {
       }
     }
     return getStorage<User[]>(KEYS.USERS, []);
+  },
+
+  async deleteUser(uid: string): Promise<void> {
+    if (isFirebaseEnabled && db) {
+      try {
+        await deleteDoc(doc(db, 'users', uid));
+        return;
+      } catch (e) {
+        console.error("Firestore deleteUser error:", e);
+      }
+    }
+    const users = getStorage<User[]>(KEYS.USERS, []);
+    const updatedUsers = users.filter(u => u.uid !== uid);
+    setStorage(KEYS.USERS, updatedUsers);
   },
 
   // Sessions APIs

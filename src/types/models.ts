@@ -6,6 +6,8 @@ export interface User {
   permission: 'Admin' | 'Voter' | 'Viewer' | 'Pending';
   createdAt: string;
   updatedAt: string;
+  deviceType?: string;
+  ipAddress?: string;
 }
 
 export interface VoteSession {

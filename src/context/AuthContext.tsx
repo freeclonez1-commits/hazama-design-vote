@@ -4,13 +4,71 @@ import { dbService, initializeMockData } from '../services/db';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { isFirebaseEnabled, auth, signInWithGoogleSNS } from '../services/firebaseService';
 
+const getDeviceType = (): string => {
+  const ua = navigator.userAgent;
+  const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  return isMobile ? 'Mobile' : 'PC';
+};
+
+const fetchIpAddress = async (): Promise<string> => {
+  // Service 1: ipify
+  try {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch('https://api.ipify.org?format=json', { signal: controller.signal });
+    clearTimeout(id);
+    const data = await res.json();
+    if (data.ip) {
+      console.log('[Auth] IP resolved via ipify:', data.ip);
+      return data.ip;
+    }
+  } catch (error) {
+    console.warn('[Auth] ipify failed, trying fallback 1 (ipapi):', error);
+  }
+
+  // Fallback 2: ipapi.co
+  try {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+    clearTimeout(id);
+    const data = await res.json();
+    if (data.ip) {
+      console.log('[Auth] IP resolved via ipapi:', data.ip);
+      return data.ip;
+    }
+  } catch (error) {
+    console.warn('[Auth] ipapi failed, trying fallback 2 (ipinfo):', error);
+  }
+
+  // Fallback 3: ipinfo.io
+  try {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch('https://ipinfo.io/json', { signal: controller.signal });
+    clearTimeout(id);
+    const data = await res.json();
+    if (data.ip) {
+      console.log('[Auth] IP resolved via ipinfo:', data.ip);
+      return data.ip;
+    }
+  } catch (error) {
+    console.warn('[Auth] ipinfo failed:', error);
+  }
+
+  console.warn('[Auth] All IP services failed, defaulting to Unknown');
+  return 'Unknown';
+};
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  isSuperAdmin: boolean;
   login: (email: string) => Promise<boolean>;
   logout: () => Promise<void>;
   completeProfile: (name: string, role: User['role']) => Promise<User>;
   updateUserPermission: (uid: string, permission: User['permission']) => Promise<void>;
+  deleteUser: (uid: string) => Promise<void>;
   switchUser: (uid: string) => Promise<void>;
 }
 
@@ -19,6 +77,33 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Sync user metadata (IP & Device) when logged in or switching accounts
+  useEffect(() => {
+    if (!user) return;
+
+    const syncMetadata = async () => {
+      try {
+        const deviceType = getDeviceType();
+        const ipAddress = await fetchIpAddress();
+        
+        if (user.deviceType !== deviceType || user.ipAddress !== ipAddress) {
+          const updated = {
+            ...user,
+            deviceType,
+            ipAddress,
+            updatedAt: new Date().toISOString()
+          };
+          await dbService.saveUser(updated);
+          setUser(updated);
+        }
+      } catch (e) {
+        console.error('Error syncing user metadata:', e);
+      }
+    };
+
+    syncMetadata();
+  }, [user?.uid]);
 
   useEffect(() => {
     // Make sure initial mock data is set up
@@ -191,6 +276,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const deleteUser = async (uid: string) => {
+    // SECURITY: Only Super Admin can delete users
+    const isSuperAdminCheck = user?.email.toLowerCase() === 'admin@hazama.com' || user?.email.toLowerCase() === 'freeclonez2@gmail.com';
+    if (!isSuperAdminCheck) {
+      throw new Error('Chỉ có admin tổng mới có quyền xóa thành viên.');
+    }
+    await dbService.deleteUser(uid);
+  };
+
   const switchUser = async (uid: string) => {
     // SECURITY: Only Admin can switch users (used for testing/impersonation in demo mode)
     if (user?.permission !== 'Admin') {
@@ -206,8 +300,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(false);
   };
 
+  const isSuperAdmin = !!user && (user.email.toLowerCase() === 'admin@hazama.com' || user.email.toLowerCase() === 'freeclonez2@gmail.com');
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, completeProfile, updateUserPermission, switchUser }}>
+    <AuthContext.Provider value={{ user, loading, isSuperAdmin, login, logout, completeProfile, updateUserPermission, deleteUser, switchUser }}>
       {children}
     </AuthContext.Provider>
   );
