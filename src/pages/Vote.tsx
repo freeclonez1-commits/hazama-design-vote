@@ -1359,12 +1359,12 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                           boxShadow: isIdle ? 'none' : '0 0 0 2px rgba(48,209,88,0.3)',
                           pointerEvents: 'none'
                         }} />
-                        {/* Tooltip tùy chỉnh — luôn hiện đúng tên */}
+                        {/* Tooltip tùy chỉnh — hiển thị phía dưới để không bị che khuất bởi mép trên trình duyệt */}
                         <div
                           className="avatar-tooltip"
                           style={{
                             position: 'absolute',
-                            bottom: 'calc(100% + 8px)',
+                            top: 'calc(100% + 8px)',
                             left: '50%',
                             transform: 'translateX(-50%)',
                             backgroundColor: 'rgba(30,30,30,0.92)',
@@ -1385,13 +1385,13 @@ export const Vote: React.FC<VoteProps> = ({ sessionId }) => {
                           {tooltipText}
                           <div style={{
                             position: 'absolute',
-                            top: '100%',
+                            bottom: '100%',
                             left: '50%',
                             transform: 'translateX(-50%)',
                             width: 0, height: 0,
                             borderLeft: '5px solid transparent',
                             borderRight: '5px solid transparent',
-                            borderTop: '5px solid rgba(30,30,30,0.92)'
+                            borderBottom: '5px solid rgba(30,30,30,0.92)'
                           }} />
                         </div>
                       </div>
