@@ -209,6 +209,11 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ sessionId, setTab 
     e.preventDefault();
     if (!activeSession) return;
     
+    if (new Date(deadline).getTime() <= Date.now()) {
+      toast('Thời hạn bình chọn phải ở tương lai. Vui lòng chọn ngày/giờ sau thời điểm hiện tại.', 'warning');
+      return;
+    }
+
     try {
       const updated = {
         ...activeSession,
@@ -258,16 +263,26 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ sessionId, setTab 
       // 2. Đưa tất cả designs về pending
       await Promise.all(designs.map(d => updateDesign({ ...d, status: 'pending' })));
 
-      // 3. Reset session: xóa approvedWinnerIds, trả về published
+      // 3. Nếu hạn đóng cửa đã trôi qua -> tự động gia hạn thêm 3 ngày ở tương lai
+      let sessionDeadline = activeSession!.deadline;
+      if (new Date(sessionDeadline).getTime() <= Date.now()) {
+        const d = new Date();
+        d.setDate(d.getDate() + 3);
+        d.setHours(17, 0, 0, 0); // 17:00
+        sessionDeadline = d.toISOString();
+      }
+
+      // Reset session: xóa approvedWinnerIds, trả về published
       const resetSession = {
         ...activeSession!,
+        deadline: sessionDeadline,
         status: 'published' as const,
         approvedWinnerIds: [],
         updatedAt: new Date().toISOString()
       };
       await dbService.saveSession(resetSession);
 
-      toast('Đã đặt lại phiên bình chọn. Người dùng có thể bình chọn lại!', 'success');
+      toast('Đã đặt lại phiên bình chọn & cập nhật thời hạn! Người dùng có thể bình chọn lại ngay.', 'success');
       loadSessionDetails(sessionId);
       setShowResetConfirm(false);
     } catch (e) {
@@ -702,6 +717,24 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ sessionId, setTab 
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Hạn đóng cửa</label>
               <input type="datetime-local" className="input" value={deadline} onChange={e => setDeadline(e.target.value)} />
+              {new Date(activeSession.deadline).getTime() <= Date.now() && (
+                <div style={{
+                  marginTop: '6px',
+                  padding: '8px 10px',
+                  backgroundColor: '#FFF2F2',
+                  border: '1px solid #FF3B30',
+                  borderRadius: '8px',
+                  color: '#FF3B30',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+                  <span>Hạn đóng cửa hiện tại đã trôi qua. Vui lòng chọn thời hạn tương lai để mở lại bình chọn.</span>
+                </div>
+              )}
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>

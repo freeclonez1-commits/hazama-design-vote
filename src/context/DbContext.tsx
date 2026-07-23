@@ -149,7 +149,16 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const updateSessionStatus = async (sessionId: string, status: VoteSession['status']) => {
     const session = await dbService.getSession(sessionId);
     if (session) {
-      const updated = { ...session, status, updatedAt: new Date().toISOString() };
+      let deadline = session.deadline;
+      // Nếu công bố hoặc mở lại phiên mà thời hạn cũ đã quá hạn -> Tự động gia hạn thêm 3 ngày ở tương lai
+      if (status === 'published' && new Date(session.deadline).getTime() <= Date.now()) {
+        const d = new Date();
+        d.setDate(d.getDate() + 3);
+        d.setHours(17, 0, 0, 0); // 17:00
+        deadline = d.toISOString();
+      }
+
+      const updated = { ...session, status, deadline, updatedAt: new Date().toISOString() };
       await dbService.saveSession(updated);
       if (activeSession && activeSession.id === sessionId) {
         setActiveSession(updated);
